@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Explanation Payload",
+  "type": "object",
+  "required": [
+    "route_id",
+    "recommended_route",
+    "alternatives_considered",
+    "diversification",
+    "priority_context",
+    "weight_schedule_version"
+  ],
+  "properties": {
+    "route_id": { "type": "string" },
+    "recommended_route": {
+      "type": "object",
+      "required": ["route_id", "predicted_travel_time_s"],
+      "properties": {
+        "route_id": { "type": "string" },
+        "predicted_travel_time_s": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "alternatives_considered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["route_id", "predicted_travel_time_s", "rank"],
+        "properties": {
+          "route_id": { "type": "string" },
+          "predicted_travel_time_s": { "type": "number" },
+          "rank": { "type": "integer" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "diversification": {
+      "type": "object",
+      "required": ["applied", "reason", "assignment_pool_pct"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "reason": { "type": "string" },
+        "assignment_pool_pct": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "priority_context": {
+      "type": "object",
+      "required": ["trip_category", "weight_applied", "affected_ranking"],
+      "properties": {
+        "trip_category": { "type": "string" },
+        "weight_applied": { "type": "number" },
+        "affected_ranking": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "weight_schedule_version": { "type": "string" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: traffic-postgres
+    environment:
+      POSTGRES_DB: traffic
+      POSTGRES_USER: traffic
+      POSTGRES_PASSWORD: traffic
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: traffic-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  routing-engine:
+    build:
+      context: ../services/routing-engine
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://traffic:traffic@postgres:5432/traffic
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+
+  audit-service:
+    build:
+      context: ../services/audit-service
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgresql://traffic:traffic@postgres:5432/traffic
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  postgres-data:
+  redis-data:

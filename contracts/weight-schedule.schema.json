@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weight Schedule",
+  "type": "object",
+  "required": ["version", "effective_date", "weights"],
+  "properties": {
+    "version": { "type": "string" },
+    "effective_date": { "type": "string", "format": "date" },
+    "weights": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    }
+  },
+  "additionalProperties": false
+}
