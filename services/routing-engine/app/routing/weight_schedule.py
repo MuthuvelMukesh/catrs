@@ -19,7 +19,28 @@ class WeightSchedule:
         self._versions[version] = row
         return row
 
-    def get_weight(self, trip_category: str, version: str | None = None) -> float:
-        selected = self._versions[version] if version else next(reversed(self._versions.values()))
+    def get_version(self, *, version: str | None = None, as_of: date | str | None = None) -> dict[str, object]:
+        if version is not None:
+            try:
+                return self._versions[version]
+            except KeyError as exc:
+                raise ValueError(f"Unknown weight schedule version: {version}") from exc
+
+        target_date = date.max if as_of is None else date.fromisoformat(str(as_of))
+        eligible = [
+            row for row in self._versions.values()
+            if date.fromisoformat(str(row["effective_date"])) <= target_date
+        ]
+        if not eligible:
+            raise ValueError(f"No weight schedule is effective on {target_date.isoformat()}")
+        return max(eligible, key=lambda row: date.fromisoformat(str(row["effective_date"])))
+
+    def get_weight(
+        self,
+        trip_category: str,
+        version: str | None = None,
+        as_of: date | str | None = None,
+    ) -> float:
+        selected = self.get_version(version=version, as_of=as_of)
         weights = selected["weights"]
         return float(weights.get(trip_category, 1.0))

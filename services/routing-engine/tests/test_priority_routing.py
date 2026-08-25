@@ -72,6 +72,23 @@ def test_weight_schedule_rejects_updates_to_existing_version():
         pass
 
 
+def test_weight_schedule_selects_policy_effective_at_requested_date():
+    schedule = WeightSchedule()
+    schedule.insert_version({
+        "version": "v1",
+        "effective_date": "2026-07-30",
+        "weights": {"emergency": 10.0},
+    })
+    schedule.insert_version({
+        "version": "v2",
+        "effective_date": "2026-08-26",
+        "weights": {"emergency": 12.0},
+    })
+
+    assert schedule.get_weight("emergency", as_of="2026-08-01") == 10.0
+    assert schedule.get_version(as_of="2026-08-27")["version"] == "v2"
+
+
 def test_ranking_emits_schema_shaped_explanation_from_ranked_values():
     result = rank_routes(
         trip_category="emergency",
