@@ -68,3 +68,26 @@ def test_weight_schedule_rejects_updates_to_existing_version():
         assert False, "Expected duplicate version rejection"
     except ValueError:
         pass
+
+
+def test_ranking_emits_schema_shaped_explanation_from_ranked_values():
+    result = rank_routes(
+        trip_category="emergency",
+        routes=[
+            {"route_id": "r1", "travel_time_s": 500, "priority_score": 10},
+            {"route_id": "r2", "travel_time_s": 700, "priority_score": 2},
+        ],
+        weight_schedule={
+            "version": "2026-08-26-v1",
+            "effective_date": "2026-08-26",
+            "weights": {"emergency": 10.0},
+        },
+        include_explanation=True,
+    )
+
+    explanation = result["explanation"]
+    assert explanation["recommended_route"]["predicted_travel_time_s"] == result["ranked_routes"][0]["travel_time_s"]
+    assert [item["predicted_travel_time_s"] for item in explanation["alternatives_considered"]] == [
+        route["travel_time_s"] for route in result["ranked_routes"]
+    ]
+    assert explanation["weight_schedule_version"] == "2026-08-26-v1"

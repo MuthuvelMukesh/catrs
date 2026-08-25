@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from typing import Any
 
-def rank_routes(*, trip_category: str, routes: list[dict[str, object]], weight_schedule: dict[str, object]) -> list[dict[str, object]]:
+
+def rank_routes(
+    *,
+    trip_category: str,
+    routes: list[dict[str, object]],
+    weight_schedule: dict[str, object],
+    include_explanation: bool = False,
+) -> list[dict[str, object]] | dict[str, Any]:
     """Rank routes by travel time and trip-category weight.
 
     The prototype keeps the logic simple but matches the intended architecture:
@@ -22,7 +30,38 @@ def rank_routes(*, trip_category: str, routes: list[dict[str, object]], weight_s
             "weight_applied": weight_value,
             "adjusted_score": effective_score,
         })
-    return sorted(ranked, key=lambda item: item["adjusted_score"], reverse=True)
+    ranked = sorted(ranked, key=lambda item: item["adjusted_score"], reverse=True)
+    if not include_explanation:
+        return ranked
+
+    alternatives = [
+        {
+            "route_id": route["route_id"],
+            "predicted_travel_time_s": route["travel_time_s"],
+            "rank": rank,
+        }
+        for rank, route in enumerate(ranked, start=1)
+    ]
+    explanation = {
+        "route_id": str(ranked[0]["route_id"]),
+        "recommended_route": {
+            "route_id": ranked[0]["route_id"],
+            "predicted_travel_time_s": ranked[0]["travel_time_s"],
+        },
+        "alternatives_considered": alternatives,
+        "diversification": {
+            "applied": False,
+            "reason": "No diversification cap was requested for this ranking.",
+            "assignment_pool_pct": 100.0,
+        },
+        "priority_context": {
+            "trip_category": trip_category,
+            "weight_applied": ranked[0]["weight_applied"],
+            "affected_ranking": True,
+        },
+        "weight_schedule_version": str(weight_schedule["version"]),
+    }
+    return {"ranked_routes": ranked, "explanation": explanation}
 
 
 def route_trip(*, trip_category: str, route_options: list[dict[str, object]], request_count: int, current_counts: dict[str, int], cap_fraction: float) -> dict[str, int]:
