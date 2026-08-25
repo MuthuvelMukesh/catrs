@@ -49,6 +49,8 @@ def test_route_trip_applies_capacity_cap_for_equivalent_od_batch():
     )
 
     assert assignments["r1"] <= 35
+    assert assignments["r1"] == 0
+    assert assignments["r2"] == 15
 
 
 def test_weight_schedule_rejects_updates_to_existing_version():

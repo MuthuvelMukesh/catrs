@@ -79,8 +79,9 @@ def route_trip(*, trip_category: str, route_options: list[dict[str, object]], re
     assignments: dict[str, int] = {route["route_id"]: 0 for route in route_options}
     for route in ranked:
         route_id = str(route["route_id"])
-        capacity = min(max_cap, max(0, request_count - sum(assignments.values())))
+        available_capacity = max(0, max_cap - current_counts.get(route_id, 0))
+        capacity = min(available_capacity, max(0, request_count - sum(assignments.values())))
         if capacity <= 0:
-            break
-        assignments[route_id] = min(capacity, max(0, current_counts.get(route_id, 0) + 1))
+            continue
+        assignments[route_id] = capacity
     return assignments
