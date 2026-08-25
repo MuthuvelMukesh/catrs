@@ -55,3 +55,26 @@ class WeightScheduleRepository:
             """,
             (row["version"], row["effective_date"], row["weights"]),
         )
+
+
+class RouteOutcomeRepository:
+    def __init__(self, connection: Any) -> None:
+        self._connection = connection
+
+    def insert(self, outcome: dict[str, Any]) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO route_outcomes
+                (route_id, trip_category, weight_schedule_version,
+                 weight_applied, predicted_travel_time_s, observed_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                outcome["route_id"],
+                outcome["trip_category"],
+                outcome["weight_schedule_version"],
+                outcome["weight_applied"],
+                outcome["predicted_travel_time_s"],
+                outcome["observed_at"],
+            ),
+        )
