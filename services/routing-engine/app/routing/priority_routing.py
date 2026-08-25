@@ -64,7 +64,16 @@ def rank_routes(
     return {"ranked_routes": ranked, "explanation": explanation}
 
 
-def route_trip(*, trip_category: str, route_options: list[dict[str, object]], request_count: int, current_counts: dict[str, int], cap_fraction: float) -> dict[str, int]:
+def route_trip(
+    *,
+    trip_category: str,
+    route_options: list[dict[str, object]],
+    request_count: int,
+    current_counts: dict[str, int],
+    cap_fraction: float,
+    counter: Any | None = None,
+    window_seconds: int = 60,
+) -> dict[str, int]:
     """Apply a simple diversification cap across equivalent OD requests."""
     ranked = rank_routes(
         trip_category=trip_category,
@@ -82,6 +91,13 @@ def route_trip(*, trip_category: str, route_options: list[dict[str, object]], re
         available_capacity = max(0, max_cap - current_counts.get(route_id, 0))
         capacity = min(available_capacity, max(0, request_count - sum(assignments.values())))
         if capacity <= 0:
+            continue
+        if counter is not None and not counter.reserve(
+            route_id=route_id,
+            amount=capacity,
+            limit=max_cap,
+            window_seconds=window_seconds,
+        ):
             continue
         assignments[route_id] = capacity
     return assignments
