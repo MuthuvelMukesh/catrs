@@ -41,3 +41,24 @@ def test_audit_endpoint_accepts_outcome_and_schedule_contracts():
 
     assert response.status_code == 200
     assert response.json()["valid"] is True
+
+
+def test_audit_endpoint_rejects_fields_outside_published_contracts():
+    response = client.post(
+        "/audit/outcome",
+        json={
+            "outcome": {
+                "trip_category": "emergency",
+                "weight_applied": 10.0,
+                "weight_schedule_version": "2026-08-26-v1",
+                "unpublished_field": "reject me",
+            },
+            "weight_schedule": {
+                "version": "2026-08-26-v1",
+                "effective_date": "2026-08-26",
+                "weights": {"emergency": 10.0},
+            },
+        },
+    )
+
+    assert response.status_code == 422
