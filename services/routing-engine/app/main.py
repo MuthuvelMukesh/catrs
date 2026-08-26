@@ -14,6 +14,8 @@ class RouteOption(BaseModel):
     route_id: str
     travel_time_s: float
     priority_score: float = 1.0
+    distance_m: float | None = Field(default=None, gt=0.0)
+    predicted_speed_5m: float | None = Field(default=None, gt=0.0)
 
 
 class RouteRequest(BaseModel):
@@ -52,6 +54,11 @@ def route(
             version=request.weight_schedule_version,
         )
     routes = [option.model_dump() for option in request.routes]
+    for route_option in routes:
+        if route_option["distance_m"] is not None and route_option["predicted_speed_5m"] is not None:
+            route_option["travel_time_s"] = route_option["distance_m"] / (
+                route_option["predicted_speed_5m"] * 1000.0 / 3600.0
+            )
     ranked = rank_routes(
         trip_category=request.trip_category,
         routes=routes,

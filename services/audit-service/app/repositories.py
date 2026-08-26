@@ -28,6 +28,23 @@ class PolicyRepository:
             "weights": row[2],
         }
 
+    def get_version(self, *, version: str) -> dict[str, Any] | None:
+        row = self._connection.execute(
+            """
+            SELECT version, effective_date, weights
+            FROM weight_schedules
+            WHERE version = %s
+            """,
+            (version,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "version": row[0],
+            "effective_date": row[1],
+            "weights": row[2],
+        }
+
 
 class AuditResultRepository:
     def __init__(self, connection: Any) -> None:

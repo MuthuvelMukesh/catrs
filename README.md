@@ -29,6 +29,26 @@ The routing engine manages synthetic data generation, model-based prediction, ro
 
 The audit service independently reads policy and observed system data to detect divergence from the published weight schedule and produce structured audit reports.
 
-## CI
+## Implementation status
+
+### Complete
+
+- [x] Synthetic 10x10 road graph and seasonal traffic-world data
+- [x] Versioned, future-dated weight schedules with repository support
+- [x] Prediction service with a standalone fallback heuristic
+- [x] Priority-weighted route ranking, diversification caps, and Redis counters
+- [x] Explanation payload generated from ranking variables
+- [x] Contract-isolated audit verification and health endpoints
+- [x] Route-to-audit cross-service integration test
+
+### Remaining
+
+- [ ] Connect production traffic, weather, incident, and event feeds
+- [ ] Persist live readings and audit results through Postgres/TimescaleDB
+- [ ] Run the ST-GNN over the production feature and model pipeline
+- [ ] Connect Redis-backed diversification state in deployed environments
+- [ ] Add deployment configuration, migrations, observability, and operational runbooks
+- [ ] Run service tests from each service directory: `cd services/<service> && pytest -q`
+- [ ] Run the integration test with Docker services: `pytest -q tests/integration`
 
 A GitHub Actions workflow runs lint and test checks for both services on push.

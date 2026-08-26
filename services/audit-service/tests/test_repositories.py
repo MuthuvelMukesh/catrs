@@ -33,6 +33,18 @@ def test_policy_repository_reads_latest_effective_policy():
     assert "ORDER BY effective_date DESC" in connection.executed[0][0]
 
 
+def test_policy_repository_reads_pinned_policy_version():
+    connection = FakeConnection(("v2", "2026-08-26", {"emergency": 12.0}))
+    repository = PolicyRepository(connection)
+
+    assert repository.get_version(version="v2") == {
+        "version": "v2",
+        "effective_date": "2026-08-26",
+        "weights": {"emergency": 12.0},
+    }
+    assert "WHERE version = %s" in connection.executed[0][0]
+
+
 def test_audit_result_repository_writes_result_to_audit_table():
     connection = FakeConnection(None)
     repository = AuditResultRepository(connection)

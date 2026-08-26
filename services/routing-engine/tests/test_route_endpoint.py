@@ -49,3 +49,30 @@ def test_route_endpoint_rejects_unknown_request_fields():
     )
 
     assert response.status_code == 422
+
+
+def test_route_endpoint_derives_travel_time_from_predicted_speed():
+    response = client.post(
+        "/route",
+        json={
+            "trip_category": "commuter_general",
+            "routes": [
+                {
+                    "route_id": "r1",
+                    "travel_time_s": 999,
+                    "distance_m": 1000,
+                    "predicted_speed_5m": 36,
+                },
+                {"route_id": "r2", "travel_time_s": 120},
+            ],
+            "weight_schedule": {
+                "version": "2026-08-26-v1",
+                "effective_date": "2026-08-26",
+                "weights": {"commuter_general": 1.0},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ranked_routes"][0]["route_id"] == "r1"
+    assert response.json()["ranked_routes"][0]["travel_time_s"] == 100.0
