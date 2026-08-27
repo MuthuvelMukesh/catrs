@@ -78,4 +78,3 @@ pytest -q tests/integration
 ```
 
 A GitHub Actions workflow runs lint and test checks for both services on push.
-
