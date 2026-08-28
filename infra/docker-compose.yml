@@ -13,6 +13,11 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traffic -d traffic"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -21,30 +26,43 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   routing-engine:
     build:
       context: ../services/routing-engine
+    container_name: catrs-routing-engine
     ports:
       - "8001:8000"
     environment:
       DATABASE_URL: postgresql://traffic:traffic@postgres:5432/traffic
       REDIS_URL: redis://redis:6379/0
+      ROUTING_MODE: synthetic
+      STGNN_ENABLED: "false"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   audit-service:
     build:
       context: ../services/audit-service
+    container_name: catrs-audit-service
     ports:
       - "8002:8000"
     environment:
       DATABASE_URL: postgresql://traffic:traffic@postgres:5432/traffic
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres-data:

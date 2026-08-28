@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Route Outcome",
+  "type": "object",
+  "required": [
+    "trip_category",
+    "weight_applied",
+    "weight_schedule_version"
+  ],
+  "properties": {
+    "trip_category": { "type": "string" },
+    "weight_applied": { "type": "number" },
+    "weight_schedule_version": { "type": "string" },
+    "route_id": { "type": "string" },
+    "outcome_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

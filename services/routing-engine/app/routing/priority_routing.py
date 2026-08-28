@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.routing.travel_time import enrich_routes_with_travel_time
+
 
 def rank_routes(
     *,
@@ -73,16 +75,28 @@ def route_trip(
     cap_fraction: float,
     counter: Any | None = None,
     window_seconds: int = 60,
+    weight_schedule: dict[str, Any] | None = None,
 ) -> dict[str, int]:
-    """Apply a simple diversification cap across equivalent OD requests."""
+    """Apply a simple diversification cap across equivalent OD requests.
+
+    Parameters
+    ----------
+    weight_schedule:
+        The active weight schedule dict used to rank routes before assigning
+        capacity.  When ``None`` a neutral single-category fallback is
+        constructed so the function remains callable without a live DB.
+    """
+    effective_schedule = weight_schedule or {
+        "version": "default",
+        "effective_date": "2026-01-01",
+        "weights": {trip_category: 1.0},
+    }
+    # Derive travel times from predicted speed where available.
+    options = enrich_routes_with_travel_time([dict(r) for r in route_options])
     ranked = rank_routes(
         trip_category=trip_category,
-        routes=route_options,
-        weight_schedule={
-            "version": "prototype",
-            "effective_date": "2026-01-01",
-            "weights": {trip_category: 1.0},
-        },
+        routes=options,
+        weight_schedule=effective_schedule,
     )
     max_cap = max(1, int(request_count * cap_fraction))
     assignments: dict[str, int] = {route["route_id"]: 0 for route in route_options}

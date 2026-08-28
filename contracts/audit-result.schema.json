@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Audit Result",
+  "type": "object",
+  "required": [
+    "valid",
+    "failures",
+    "weight_schedule_version"
+  ],
+  "properties": {
+    "valid": { "type": "boolean" },
+    "failures": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "weight_schedule_version": { "type": "string" }
+  },
+  "additionalProperties": false
+}

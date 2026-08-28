@@ -1,80 +1,89 @@
-# Traffic Routing System
+# Traffic Routing System (CATRS)
 
-This repository implements a three-layer traffic congestion prediction and routing platform.
+This repository implements a three-layer congestion-aware traffic prediction, routing, and auditing platform.
 
-## Layer architecture
+## Layer Architecture
 
-- Layer 1: prediction + weighted diversified routing in `services/routing-engine`
-- Layer 2: explanation payload generated in the same ranking flow as routing decisions
-- Layer 3: independent audit service in `services/audit-service` with no shared code
+- **Layer 1**: Congestion prediction + priority-weighted diversified routing in `services/routing-engine`
+- **Layer 2**: Transparency explanation payload generated in the same ranking flow as routing decisions
+- **Layer 3**: Independent audit service in `services/audit-service` with no shared code
 
-The project starts with a synthetic data environment and local infrastructure so the core behavior can be tested before moving to production feeds and dedicated clusters.
+The project starts with a deterministic synthetic data environment and local infrastructure so all core behaviors can be tested locally before connecting to external feeds and production clusters.
 
-## Local stack
+## Technology Stack
 
-- Python 3.12
-- FastAPI
-- PyTorch
-- Postgres 16 + TimescaleDB
+- Python 3.12+
+- FastAPI & Pydantic v2
+- PyTorch (ST-GNN model)
+- PostgreSQL 16 + TimescaleDB
 - Redis 7
-- pytest
+- Prometheus metrics exposition
+- JSON Schema contracts & pytest
 
 ## Services
 
-### Routing engine
+### Routing Engine (`services/routing-engine`)
 
-The routing engine manages synthetic data generation, model-based prediction, route ranking, diversification, and explanation payload generation.
+Manages synthetic/production data feeds, data normalization, ingestion pipelines, model-based & heuristic multi-horizon speed prediction, priority-weighted route ranking, diversification caps with Redis rolling-window counters, and explanation payload generation.
 
-### Audit service
+**Endpoints:**
+- `GET /health` — Liveness check (`?full=true` for dependency status)
+- `GET /metrics` — Prometheus metrics exposition
+- `POST /predict` — Multi-horizon speed predictions (5m, 15m, 30m)
+- `POST /route` — Route ranking, capacity assignments, and explanation payloads
 
-The audit service independently reads policy and observed system data to detect divergence from the published weight schedule and produce structured audit reports.
+### Audit Service (`services/audit-service`)
 
-## Implementation status
+Independently queries policy versions and observed route outcomes to verify compliance with published weight schedules, producing structured audit results without importing code from the routing engine.
 
-### Complete
+**Endpoints:**
+- `GET /health` — Liveness check (`?full=true` for database status)
+- `GET /metrics` — Prometheus metrics exposition
+- `POST /audit/outcome` — Single route outcome policy verification
+- `POST /audit/batch` — Bulk route outcome verification
+- `POST /audit/summary` — Compact aggregate batch audit summary
 
-- [x] Synthetic 10x10 road graph and seasonal traffic-world data
-- [x] Versioned, future-dated weight schedules with repository support
-- [x] Prediction service with a standalone fallback heuristic
-- [x] Priority-weighted route ranking, diversification caps, and Redis counters
-- [x] Explanation payload generated from ranking variables
-- [x] Contract-isolated audit verification and health endpoints
-- [x] Route-to-audit cross-service integration test
-- [x] Typed configuration modules with synthetic/production mode switching
-- [x] Production data feed adapters (traffic, weather, incident, event) with configurable URLs
-- [x] Synthetic feed adapters wrapping the deterministic world behind the same interface
-- [x] Data normalizer merging heterogeneous feeds into unified SegmentContext records
-- [x] Ingestion pipeline orchestrating feed → normalize → persist → baseline-refresh
-- [x] TimescaleDB baseline refresh migration and performance indices
-- [x] HistoricalBaselineRepository with upsert and SQL-based refresh
-- [x] ST-GNN feature tensor construction from SegmentContext windows
-- [x] PredictionService wired to ST-GNN with config-driven model loading
-- [x] Enhanced RuntimeDependencies with PredictionService and baseline repository
+---
 
-### Remaining
+## Implementation Task Tracker
 
-- [ ] Dedicated travel-time estimation module and `/predict` endpoint
-- [ ] Fix `route_trip` hardcoded weight schedule to accept caller's schedule
-- [ ] End-to-end synthetic pipeline test (data → prediction → routing → explanation → audit)
-- [ ] Contract schema validation tests (JSON Schema)
-- [ ] Audit service batch auditor and `/audit/batch`, `/audit/summary` endpoints
-- [ ] Versioned contracts for audit results and route outcomes
-- [ ] Prometheus metrics and `/metrics` endpoint for both services
-- [ ] Enriched `/health` endpoints with dependency checks
-- [ ] Deployment configuration, additional migrations, and observability
-- [ ] Updated documentation: configuration guide, API reference
+### Complete Phases (1–9)
 
-### Running tests
+- [x] **Phase 1 — Foundation**: Module structure, `__init__.py` files, typed configuration with `Settings.from_env()`.
+- [x] **Phase 2 — Data Feed Adapters & Normalization**: Base `DataFeed`, production HTTP adapters, synthetic adapters, and timestamp-based `normalizer.py`.
+- [x] **Phase 3 — TimescaleDB & Baselines**: `HistoricalBaselineRepository`, `IngestPipeline`, and `002_baseline_refresh.sql`.
+- [x] **Phase 4 — ST-GNN Integration**: Feature tensor builder `feature_tensor.py`, `PredictionService.from_config()`, PyTorch GRU ST-GNN model.
+- [x] **Phase 5 — Travel-Time Estimation & Routing Refinement**: Dedicated `travel_time.py` module, dynamic weight schedule wiring in `route_trip`, and `/predict` endpoint.
+- [x] **Phase 6 — End-to-End Synthetic Pipeline & Contracts**: Full synthetic ingestion tests, explanation payload contract validation, and JSON schemas.
+- [x] **Phase 7 — Audit Service Enhancements**: `BatchAuditor`, `/audit/batch`, `/audit/summary` endpoints, and outcome schemas.
+- [x] **Phase 8 — Metrics, Observability & Health**: In-memory Prometheus metrics collectors, `/metrics` endpoints, and enriched `/health` checks.
+- [x] **Phase 9 — Infrastructure & Documentation**: Migration `003_indices_and_views.sql`, healthchecked `docker-compose.yml`, `docs/configuration.md`, and `docs/api-reference.md`.
 
-Run service tests from each service directory:
-```
-cd services/routing-engine && python -m pytest -q
-cd services/audit-service && python -m pytest -q
-```
+---
 
-Run the integration test with Docker services:
-```
-pytest -q tests/integration
+## Running Tests
+
+Run test suites from the respective service directories:
+
+```bash
+# Routing engine (90 tests)
+cd services/routing-engine && python -m pytest -v
+
+# Audit service (32 tests)
+cd services/audit-service && python -m pytest -v
 ```
 
-A GitHub Actions workflow runs lint and test checks for both services on push.
+Run all tests together from root:
+```bash
+python -m pytest services/routing-engine/tests services/audit-service/tests -v
+```
+
+---
+
+## Running Locally with Docker Compose
+
+Start TimescaleDB, Redis, and both microservices:
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
+```

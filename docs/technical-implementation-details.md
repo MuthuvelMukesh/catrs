@@ -21,6 +21,7 @@
 - Works without a database (returns contexts only for in-process use).
 - `HistoricalBaselineRepository.refresh_from_readings()` recomputes baselines from the full `traffic_readings` table.
 - Migration `002_baseline_refresh.sql` adds a server-side refresh function and performance indices.
+- Migration `003_indices_and_views.sql` adds analytical reporting views and compound indices for route outcomes and audits.
 
 ## 4. Prediction model
 
@@ -29,9 +30,12 @@
 - `feature_tensor.py` converts `SegmentContext` windows into `[1, 12, nodes, 9]` tensors via `build_feature_vector`.
 - `PredictionService.from_config()` optionally constructs an `STGNNPredictor` from config with checkpoint loading.
 - When ST-GNN is unavailable, `compute_prediction()` heuristic is used as fallback.
+- Dedicated `/predict` endpoint exposes multi-horizon predictions over HTTP.
 
-## 5. Routing and diversification
+## 5. Travel-time estimation & routing
 
+- Dedicated `app/routing/travel_time.py` handles speed-to-time conversions with sentinel handling for division-by-zero prevention.
+- `route_trip` receives caller's active weight schedule rather than using hardcoded constants.
 - Maintain a versioned weight schedule table where each new version is future-dated.
 - Rank routes using a priority-weighted equilibrium formulation with diversification caps.
 - Use Redis counters to prevent route herding within a rolling time window.
@@ -40,16 +44,24 @@
 
 - Emit the explanation payload directly inside the ranking function.
 - Ensure route travel-time values in the payload are copied from the same local values used to rank alternatives.
+- Validated against schema in `contracts/explanation-payload.schema.json`.
 
-## 7. Audit boundary
+## 7. Audit boundary & Batch Auditing
 
 - The audit service reads from read-only replicas or independent connections.
+- `BatchAuditor` handles bulk outcome verification against pinned weight schedule versions.
+- `/audit/batch` and `/audit/summary` endpoints support high-throughput auditing.
 - Version-pinned queries ensure the policy used for period X matches the schedule in effect during X.
 - CI checks reject imports from the routing-engine package in audit-service.
+- Contracts codified in `contracts/route-outcome.schema.json` and `contracts/audit-result.schema.json`.
 
-## 8. Configuration
+## 8. Metrics & Observability
+
+- In-memory `RoutingMetrics` and `AuditMetrics` collectors expose Prometheus exposition format on `/metrics`.
+- `/health` endpoints support both lightweight liveness checks and detailed dependency readiness inspections via `?full=true`.
+
+## 9. Configuration
 
 - `app/config.py` in each service provides typed `Settings` with `from_env()` factory.
 - `RunMode.SYNTHETIC` (default) and `RunMode.PRODUCTION` control feed source selection.
 - ST-GNN, feed URLs, and routing parameters are all configurable via environment variables.
-
