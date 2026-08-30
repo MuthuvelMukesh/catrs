@@ -64,6 +64,17 @@ services:
       redis:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ../frontend
+    container_name: catrs-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - routing-engine
+      - audit-service
+
 volumes:
   postgres-data:
   redis-data:
+

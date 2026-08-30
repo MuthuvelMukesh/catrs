@@ -47,7 +47,7 @@ Independently queries policy versions and observed route outcomes to verify comp
 
 ## Implementation Task Tracker
 
-### Complete Phases (1–9)
+### Completed Phases (1–14)
 
 - [x] **Phase 1 — Foundation**: Module structure, `__init__.py` files, typed configuration with `Settings.from_env()`.
 - [x] **Phase 2 — Data Feed Adapters & Normalization**: Base `DataFeed`, production HTTP adapters, synthetic adapters, and timestamp-based `normalizer.py`.
@@ -58,32 +58,72 @@ Independently queries policy versions and observed route outcomes to verify comp
 - [x] **Phase 7 — Audit Service Enhancements**: `BatchAuditor`, `/audit/batch`, `/audit/summary` endpoints, and outcome schemas.
 - [x] **Phase 8 — Metrics, Observability & Health**: In-memory Prometheus metrics collectors, `/metrics` endpoints, and enriched `/health` checks.
 - [x] **Phase 9 — Infrastructure & Documentation**: Migration `003_indices_and_views.sql`, healthchecked `docker-compose.yml`, `docs/configuration.md`, and `docs/api-reference.md`.
+- [x] **Phase 10 — Web UI Dashboard**: Vite + Vanilla JS/CSS real-time dashboard for metrics, multi-horizon speed prediction visualizer, interactive route ranking with explanation viewer, and single/batch policy auditing forms.
+- [x] **Phase 11 — ST-GNN Model Training Pipeline & Checkpoint Generation**: Standalone PyTorch training script (`scripts/train_stgnn.py`) to train `SpatioTemporalGNN` on synthetic time-series sequences, loss/metric evaluation, and export of ready-to-use checkpoint `.pt` weights.
+- [x] **Phase 12 — Scheduled Background Ingestion & Baseline Refresh Worker**: Periodic ingestion worker (`app/worker.py`) running `IngestPipeline` and TimescaleDB baseline recalculation on a configurable cron/interval loop.
+- [x] **Phase 13 — Complete Containerization & CI Integration**: Frontend containerization in `infra/docker-compose.yml`, `Dockerfile` for web UI, and GitHub Actions CI workflow covering frontend build and end-to-end integration tests.
+- [x] **Phase 14 — Performance Benchmarking & Concurrency Stress Testing**: Automated load test suite (`tests/benchmarks/test_throughput.py`) for route ranking latency (<50ms) and high-throughput batch audit verification.
 
 ---
 
-## Running Tests
+## Running the Web Dashboard
+
+The web dashboard is located in `frontend/` and provides a live UI for interacting with both services:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Visit `http://localhost:5173` to access the dashboard.
+
+---
+
+## Training the ST-GNN Model
+
+Train the PyTorch Spatio-Temporal GNN on synthetic historical traffic sequences:
+
+```bash
+python services/routing-engine/scripts/train_stgnn.py --epochs 15 --checkpoint services/routing-engine/checkpoints/stgnn_default.pt
+```
+
+---
+
+## Running the Background Ingestion Worker
+
+Start periodic data ingestion and historical baseline refresh cycles:
+
+```bash
+cd services/routing-engine
+python -m app.worker --interval 300
+```
+
+---
+
+## Running Tests & Benchmarks
 
 Run test suites from the respective service directories:
 
 ```bash
-# Routing engine (90 tests)
+# Routing engine (95 tests)
 cd services/routing-engine && python -m pytest -v
 
 # Audit service (32 tests)
 cd services/audit-service && python -m pytest -v
-```
 
-Run all tests together from root:
-```bash
-python -m pytest services/routing-engine/tests services/audit-service/tests -v
+# Performance benchmarks
+python -m pytest tests/benchmarks -v -s
 ```
 
 ---
 
 ## Running Locally with Docker Compose
 
-Start TimescaleDB, Redis, and both microservices:
+Start TimescaleDB, Redis, Routing Engine, Audit Service, and Web Dashboard:
 
 ```bash
 docker compose -f infra/docker-compose.yml up --build
 ```
+
+

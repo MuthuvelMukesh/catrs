@@ -65,3 +65,33 @@
 - `app/config.py` in each service provides typed `Settings` with `from_env()` factory.
 - `RunMode.SYNTHETIC` (default) and `RunMode.PRODUCTION` control feed source selection.
 - ST-GNN, feed URLs, and routing parameters are all configurable via environment variables.
+
+## 10. Web Dashboard (Frontend)
+
+- Vite + Vanilla JavaScript/CSS single-page application under `frontend/`.
+- Real-time service health monitoring, live Prometheus metrics parser.
+- Interactive multi-horizon speed prediction form with visual horizon bars.
+- Priority-weighted route ranking simulator with traffic assignment breakdown and raw explanation payload inspection.
+- Independent audit test harness (single outcome, batch outcome, and summary verification).
+
+## 11. Model Training & Offline Pipeline
+
+- Standalone training pipeline in `services/routing-engine/scripts/train_stgnn.py`.
+- Generates sliding-window sequence tensors from `SyntheticDeterministicWorld`.
+- Trains `SpatioTemporalGNN` using PyTorch MSE loss across 5m, 15m, and 30m prediction horizons.
+- Exports validated model weights to `checkpoints/stgnn_default.pt` for direct loading via `STGNN_CHECKPOINT_PATH`.
+
+## 12. Background Ingestion Worker
+
+- Periodic ingestion worker in `services/routing-engine/app/worker.py`.
+- Continuously executes `IngestPipeline.run_pipeline()` to poll feeds, merge readings, persist to TimescaleDB, and recalculate historical baselines.
+
+## 13. Containerization & CI Integration
+
+- Multi-service orchestration in `infra/docker-compose.yml` with TimescaleDB, Redis, Routing Engine, Audit Service, and Frontend UI.
+- GitHub Actions CI workflow in `.github/workflows/ci.yml` validating Python typechecks, service test suites, and frontend build.
+
+## 14. Performance Benchmarks
+
+- Concurrency and latency benchmark suite in `tests/benchmarks/test_throughput.py` validating sub-50ms route ranking and high-throughput batch audit verification.
+
