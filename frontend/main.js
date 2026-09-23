@@ -233,7 +233,16 @@ document.getElementById('predict-form').addEventListener('submit', async (e) => 
 
     // Render visual cards
     const visual = document.getElementById('predict-visual');
+    const isModel = data.model_used === 'st_gnn';
+    const modelBadge = isModel
+      ? '<span class="tag tag--true">ST-GNN Neural Model</span>'
+      : '<span class="tag tag--false">Deterministic Heuristic Fallback</span>';
+
     visual.innerHTML = `
+      <div style="grid-column: 1 / -1; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg-surface-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+        <span style="font-size:13px; font-weight:600; color:var(--text-secondary)">Prediction Engine:</span>
+        <div>${modelBadge}</div>
+      </div>
       <div class="prediction-card">
         <div class="prediction-card__horizon">5 Minutes</div>
         <div class="prediction-card__speed">${fmt(data.predicted_speed_5m)}</div>

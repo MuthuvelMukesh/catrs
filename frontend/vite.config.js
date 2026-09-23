@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
-    port: 3000,
+    host: '0.0.0.0',
+    port: 5173,
     proxy: {
       '/routing': {
         target: 'http://localhost:8001',
@@ -12,6 +13,7 @@ export default defineConfig({
       '/audit': {
         target: 'http://localhost:8002',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/audit/, ''),
       },
     },
   },

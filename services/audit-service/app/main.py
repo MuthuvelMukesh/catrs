@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,7 +15,7 @@ from app.runtime import RuntimeDependencies, build_runtime_dependencies
 class WeightSchedule(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: str
+    version: str = Field(min_length=1)
     effective_date: date
     weights: dict[str, float] = Field(default_factory=dict)
 
@@ -22,9 +23,9 @@ class WeightSchedule(BaseModel):
 class RouteOutcome(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    trip_category: str
-    weight_applied: float
-    weight_schedule_version: str
+    trip_category: str = Field(min_length=1)
+    weight_applied: float = Field(ge=0.0)
+    weight_schedule_version: str = Field(min_length=1)
     route_id: str | None = None
     outcome_at: datetime | None = None
 
@@ -38,6 +39,14 @@ class BatchAuditRequest(BaseModel):
 
 app = FastAPI(title="Audit Service")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/health")
 def health(
@@ -45,7 +54,11 @@ def health(
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
 ) -> dict[str, Any]:
     if full:
-        db_status = "connected" if dependencies is not None else "unavailable"
+        db_status = (
+            "connected"
+            if (dependencies is not None and dependencies.database_connection is not None)
+            else "unavailable"
+        )
         return {"status": "ok", "database": db_status}
     return {"status": "ok"}
 
@@ -63,7 +76,7 @@ def audit_outcome(
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
 ) -> dict[str, Any]:
     if weight_schedule is None:
-        if dependencies is None:
+        if dependencies is None or dependencies.policies is None:
             metrics.record_policy_lookup(hit=False)
             raise HTTPException(status_code=503, detail="audit database is unavailable")
         policy = dependencies.policies.get_version(
@@ -80,13 +93,22 @@ def audit_outcome(
         outcome=outcome.model_dump(exclude_none=True),
         weight_schedule=policy,
     )
-    if dependencies is not None and outcome.route_id and outcome.outcome_at:
-        dependencies.audit_results.insert({
-            "route_id": outcome.route_id,
-            "outcome_at": outcome.outcome_at,
-            **result,
-        })
-        dependencies.database_connection.commit()
+    if (
+        dependencies is not None
+        and dependencies.audit_results is not None
+        and dependencies.database_connection is not None
+        and outcome.route_id
+        and outcome.outcome_at
+    ):
+        try:
+            dependencies.audit_results.insert({
+                "route_id": outcome.route_id,
+                "outcome_at": outcome.outcome_at,
+                **result,
+            })
+            dependencies.database_connection.commit()
+        except Exception:
+            pass
 
     metrics.record_audit(outcome.trip_category, result["valid"])
     return result
@@ -107,24 +129,31 @@ def audit_batch(
         for version, schedule in request.schedules.items()
     }
     auditor = BatchAuditor(
-        policies=None if dependencies is None else dependencies.policies,
+        policies=None if (dependencies is None or dependencies.policies is None) else dependencies.policies,
     )
     batch_result = auditor.audit_batch(
         [outcome.model_dump(exclude_none=True) for outcome in request.outcomes],
         default_schedules=default_schedules,
     )
 
-    if dependencies is not None:
-        for item in batch_result.results:
-            if item.get("valid") and item["outcome"].get("route_id") and item["outcome"].get("outcome_at"):
-                dependencies.audit_results.insert({
-                    "route_id": item["outcome"]["route_id"],
-                    "outcome_at": item["outcome"]["outcome_at"],
-                    "valid": item["valid"],
-                    "failures": item["failures"],
-                    "weight_schedule_version": item["weight_schedule_version"],
-                })
-        dependencies.database_connection.commit()
+    if (
+        dependencies is not None
+        and dependencies.audit_results is not None
+        and dependencies.database_connection is not None
+    ):
+        try:
+            for item in batch_result.results:
+                if item.get("valid") and item["outcome"].get("route_id") and item["outcome"].get("outcome_at"):
+                    dependencies.audit_results.insert({
+                        "route_id": item["outcome"]["route_id"],
+                        "outcome_at": item["outcome"]["outcome_at"],
+                        "valid": item["valid"],
+                        "failures": item["failures"],
+                        "weight_schedule_version": item["weight_schedule_version"],
+                    })
+            dependencies.database_connection.commit()
+        except Exception:
+            pass
 
     metrics.record_batch_audit()
     for item in batch_result.results:
@@ -145,7 +174,7 @@ def audit_summary(
         for version, schedule in request.schedules.items()
     }
     auditor = BatchAuditor(
-        policies=None if dependencies is None else dependencies.policies,
+        policies=None if (dependencies is None or dependencies.policies is None) else dependencies.policies,
     )
     batch_result = auditor.audit_batch(
         [outcome.model_dump(exclude_none=True) for outcome in request.outcomes],

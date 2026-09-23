@@ -6,7 +6,11 @@ route option given prediction service output.
 """
 from __future__ import annotations
 
+import math
 from typing import Any
+
+SENTINEL_TRAVEL_TIME_S = 86_400.0  # 24 hours fallback sentinel for impassable or invalid routes
+MAX_REALISTIC_SPEED_KMH = 300.0     # Realistic highway speed upper bound
 
 
 def speed_to_travel_time(
@@ -26,13 +30,28 @@ def speed_to_travel_time(
     Returns
     -------
     float
-        Travel time in seconds.  Returns a large sentinel (86_400 s = 1 day)
-        when speed is zero or negative to avoid division-by-zero in ranking.
+        Travel time in seconds: distance_m / (speed_kmh * 1000 / 3600).
+        Returns a large sentinel (86_400 s = 24 hours) when speed or distance
+        is zero, negative, NaN, or infinite to avoid division-by-zero or undefined ranking scores.
     """
-    if speed_kmh <= 0.0 or distance_m <= 0.0:
-        return 86_400.0
-    speed_ms = speed_kmh * 1000.0 / 3600.0
-    return distance_m / speed_ms
+    try:
+        dist = float(distance_m)
+        spd = float(speed_kmh)
+    except (TypeError, ValueError):
+        return SENTINEL_TRAVEL_TIME_S
+
+    if math.isnan(dist) or math.isinf(dist) or math.isnan(spd) or math.isinf(spd):
+        return SENTINEL_TRAVEL_TIME_S
+
+    if spd <= 0.0 or dist <= 0.0:
+        return SENTINEL_TRAVEL_TIME_S
+
+    # Clamp extreme unrealistic speeds to realistic physical threshold
+    spd = min(spd, MAX_REALISTIC_SPEED_KMH)
+
+    speed_ms = spd * 1000.0 / 3600.0
+    tt = dist / speed_ms
+    return max(0.1, round(tt, 3))
 
 
 def derive_travel_time(route: dict[str, Any]) -> float:
@@ -52,13 +71,22 @@ def derive_travel_time(route: dict[str, Any]) -> float:
     Returns
     -------
     float
-        Best-estimate travel time in seconds.
+        Best-estimate travel time in seconds, validated and non-negative.
     """
     distance_m = route.get("distance_m")
     speed_5m = route.get("predicted_speed_5m")
     if distance_m is not None and speed_5m is not None:
         return speed_to_travel_time(distance_m=float(distance_m), speed_kmh=float(speed_5m))
-    return float(route["travel_time_s"])
+
+    try:
+        raw_tt = float(route.get("travel_time_s", SENTINEL_TRAVEL_TIME_S))
+    except (TypeError, ValueError):
+        return SENTINEL_TRAVEL_TIME_S
+
+    if math.isnan(raw_tt) or math.isinf(raw_tt) or raw_tt <= 0.0:
+        return SENTINEL_TRAVEL_TIME_S
+
+    return round(raw_tt, 3)
 
 
 def enrich_routes_with_travel_time(routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -67,7 +95,7 @@ def enrich_routes_with_travel_time(routes: list[dict[str, Any]]) -> list[dict[st
     Parameters
     ----------
     routes:
-        List of route option dicts.  Each dict is updated in-place.
+        List of route option dicts. Each dict is updated in-place.
 
     Returns
     -------

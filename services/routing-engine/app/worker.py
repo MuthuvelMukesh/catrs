@@ -86,11 +86,13 @@ def build_pipeline_from_config(config: Settings, db_conn: Any = None) -> IngestP
         weather_feed = SyntheticWeatherFeed()
         incident_feed = SyntheticIncidentFeed()
         event_feed = SyntheticEventFeed()
+        fallback_feed = None
     else:
-        traffic_feed = TrafficFeed(base_url=config.traffic_feed_url)
-        weather_feed = WeatherFeed(base_url=config.weather_feed_url)
-        incident_feed = IncidentFeed(base_url=config.incident_feed_url)
-        event_feed = EventFeed(base_url=config.event_feed_url)
+        traffic_feed = TrafficFeed(base_url=config.feeds.traffic_url)
+        weather_feed = WeatherFeed(base_url=config.feeds.weather_url)
+        incident_feed = IncidentFeed(base_url=config.feeds.incident_url)
+        event_feed = EventFeed(base_url=config.feeds.event_url)
+        fallback_feed = SyntheticTrafficFeed()
 
     traffic_repo = TrafficRepository(db_conn) if db_conn else None
     baseline_repo = HistoricalBaselineRepository(db_conn) if db_conn else None
@@ -100,6 +102,7 @@ def build_pipeline_from_config(config: Settings, db_conn: Any = None) -> IngestP
         weather_feed=weather_feed,
         incident_feed=incident_feed,
         event_feed=event_feed,
+        fallback_traffic_feed=fallback_feed,
         traffic_repo=traffic_repo,
         baseline_repo=baseline_repo,
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -51,6 +52,9 @@ class AuditResultRepository:
         self._connection = connection
 
     def insert(self, result: dict[str, Any]) -> None:
+        failures_val = result.get("failures", [])
+        failures_json = json.dumps(failures_val) if isinstance(failures_val, (list, dict)) else str(failures_val)
+
         self._connection.execute(
             """
             INSERT INTO audit_results
@@ -62,6 +66,6 @@ class AuditResultRepository:
                 result["outcome_at"],
                 result["weight_schedule_version"],
                 result["valid"],
-                result["failures"],
+                failures_json,
             ),
         )

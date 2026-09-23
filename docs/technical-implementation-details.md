@@ -1,97 +1,149 @@
 # Technical Implementation Details
 
-## 1. Synthetic data and storage
+Comprehensive architectural and implementation guide for the Congestion-Aware Traffic Routing System (CATRS).
 
-- Build a synthetic 10x10 grid road graph as the initial prototype.
-- Generate segment speed, volume, weather, incident, and venue-event data with daily and weekly seasonality.
-- Persist readings in Postgres and use TimescaleDB hypertables for time-series storage.
-- Maintain a historical baseline view keyed by segment, weekday, and hour.
+---
 
-## 2. Data feeds and normalization
+## 1. Synthetic Data & World Simulation
 
-- Abstract `DataFeed` interface for all feed sources (traffic, weather, incident, event).
-- Production adapters use `httpx` with configurable base URLs; return empty lists when unconfigured.
-- Synthetic adapters wrap the deterministic world behind the same interface.
-- `normalizer.py` merges heterogeneous feed readings into unified `SegmentContext` records by segment_id and closest-timestamp matching.
-- System operates without external feeds by falling back to synthetic data (rule 12).
+To provide a fully reproducible research and test environment, CATRS includes a deterministic synthetic traffic world engine (`DeterministicSyntheticWorld` and `SyntheticWorld` in `services/routing-engine/app/data/synthetic_world.py`).
 
-## 3. Ingestion pipeline
+### 10x10 Road Network Topology
+- 100 graph nodes laid out in a 10x10 planar grid.
+- Bidirectional road links connecting adjacent horizontal and vertical vertices.
+- Segments are identified deterministically (e.g. `seg_01`, `seg_02`, ...).
 
-- `IngestPipeline` orchestrates: fetch from feeds → normalize → persist traffic readings → refresh historical baselines.
-- Works without a database (returns contexts only for in-process use).
-- `HistoricalBaselineRepository.refresh_from_readings()` recomputes baselines from the full `traffic_readings` table.
-- Migration `002_baseline_refresh.sql` adds a server-side refresh function and performance indices.
-- Migration `003_indices_and_views.sql` adds analytical reporting views and compound indices for route outcomes and audits.
+### 9 Simulation Scenarios
+The world supports explicit scenario configurations via the `TrafficScenario` enumeration:
+1. `BASELINE`: Normal off-peak weekday traffic (mean speed ~55 km/h, volume ~40-60 veh/h, clear conditions).
+2. `PEAK_AM`: Morning rush hour congestion centered on inbound radial corridors (mean speed drops to ~25-35 km/h, volume surges to 120+ veh/h).
+3. `PEAK_PM`: Evening rush hour congestion centered on outbound corridors.
+4. `RAINSTORM`: Moderate precipitation across the grid reducing average speeds by 15-20% and increasing weather severity score to 0.5-0.7.
+5. `SNOWSTORM`: Severe winter conditions causing 40% speed reductions and high weather severity (0.8-1.0).
+6. `MAJOR_ACCIDENT`: Active multi-lane incident injected on primary bottleneck links, reducing speed to <10 km/h with high local spillover congestion.
+7. `STADIUM_EVENT`: Massive localized traffic concentration surrounding event venue nodes with elevated event proximity scores.
+8. `COMBINED_SEVERITY`: Concurrently active heavy rainstorm and major arterial incident.
+9. `GRIDLOCK`: Complete systemic saturation across core intersections, driving speeds below 15 km/h network-wide.
 
-## 4. Prediction model
+All scenarios accept an optional integer `seed` to guarantee bitwise-identical time series generation across runs.
 
-- Use a spatio-temporal model over 12 recent timesteps for 5/15/30-minute horizons.
-- Keep fallback heuristic separate from ML implementation to support graceful degradation.
-- `feature_tensor.py` converts `SegmentContext` windows into `[1, 12, nodes, 9]` tensors via `build_feature_vector`.
-- `PredictionService.from_config()` optionally constructs an `STGNNPredictor` from config with checkpoint loading.
-- When ST-GNN is unavailable, `compute_prediction()` heuristic is used as fallback.
-- Dedicated `/predict` endpoint exposes multi-horizon predictions over HTTP.
+---
 
-## 5. Travel-time estimation & routing
+## 2. Data Feeds & Resilient Normalization
 
-- Dedicated `app/routing/travel_time.py` handles speed-to-time conversions with sentinel handling for division-by-zero prevention.
-- `route_trip` receives caller's active weight schedule rather than using hardcoded constants.
-- Maintain a versioned weight schedule table where each new version is future-dated.
-- Rank routes using a priority-weighted equilibrium formulation with diversification caps.
-- Use Redis counters to prevent route herding within a rolling time window.
+### Data Feed Abstraction
+- The `DataFeed` abstract base class (`services/routing-engine/app/data/feeds/base.py`) defines the asynchronous contract `fetch_readings()`.
+- Four feed types are supported: `traffic`, `weather`, `incident`, and `event`.
+- In `ROUTING_MODE=production`, HTTP adapters query external REST feeds. If any external endpoint is unconfigured, unreachable, or returns a 5xx error, the pipeline catches the exception, logs a warning, and gracefully substitutes simulated readings from the fallback synthetic generator.
+- In `ROUTING_MODE=synthetic`, synthetic adapters wrap the deterministic world directly.
 
-## 6. Explanation payload
+### Temporal Normalization
+- `normalizer.py` merges heterogeneous feeds into unified `SegmentContext` domain models.
+- Contexts align traffic speed/volume with the closest weather reading, active incident status, and venue event proximity scores for each segment within a configurable temporal tolerance window.
 
-- Emit the explanation payload directly inside the ranking function.
-- Ensure route travel-time values in the payload are copied from the same local values used to rank alternatives.
-- Validated against schema in `contracts/explanation-payload.schema.json`.
+---
 
-## 7. Audit boundary & Batch Auditing
+## 3. Ingestion Pipeline & Historical Baselines
 
-- The audit service reads from read-only replicas or independent connections.
-- `BatchAuditor` handles bulk outcome verification against pinned weight schedule versions.
-- `/audit/batch` and `/audit/summary` endpoints support high-throughput auditing.
-- Version-pinned queries ensure the policy used for period X matches the schedule in effect during X.
-- CI checks reject imports from the routing-engine package in audit-service.
-- Contracts codified in `contracts/route-outcome.schema.json` and `contracts/audit-result.schema.json`.
+### IngestPipeline
+- Located in `services/routing-engine/app/data/ingestion.py`.
+- Step 1: Poll feeds concurrently.
+- Step 2: Normalize feed outputs into `SegmentContext` snapshots.
+- Step 3: Persist readings into PostgreSQL / TimescaleDB hypertable `traffic_readings`.
+- Step 4: Trigger recalculation of historical baseline speeds.
+- Resilient operation: If the database is unreachable, `IngestPipeline` skips SQL operations and returns the normalized contexts in-memory for live routing.
 
-## 8. Metrics & Observability
+### Database Hypertables & Baselines
+- Migration `001_initial_schema.sql`: Sets up TimescaleDB hypertables, weight schedules, and outcome audit tables.
+- Migration `002_baseline_refresh.sql`: Creates `refresh_historical_baselines()` stored procedure, grouping readings by `(segment_id, weekday, hour)` to maintain rolling mean and median speeds.
+- Migration `003_indices_and_views.sql`: Adds compound indices and analytical views for fast auditing and compliance queries.
 
-- In-memory `RoutingMetrics` and `AuditMetrics` collectors expose Prometheus exposition format on `/metrics`.
-- `/health` endpoints support both lightweight liveness checks and detailed dependency readiness inspections via `?full=true`.
+---
 
-## 9. Configuration
+## 4. Spatio-Temporal Prediction Pipeline (ST-GNN)
 
-- `app/config.py` in each service provides typed `Settings` with `from_env()` factory.
-- `RunMode.SYNTHETIC` (default) and `RunMode.PRODUCTION` control feed source selection.
-- ST-GNN, feed URLs, and routing parameters are all configurable via environment variables.
+### Model Architecture
+- Implemented in `services/routing-engine/app/models/st_gnn.py` using PyTorch.
+- Combines graph spatial propagation over the road adjacency matrix with a Gated Recurrent Unit (GRU) for temporal sequence dynamics.
+- Input: `[batch_size, timesteps=12, nodes=100, features=9]` tensor representing 1 hour of 5-minute historical intervals.
+- Feature dimensions: `[speed, volume, baseline_speed, weather_severity, incident_flag, event_proximity, upstream_congestion, sin(hour), cos(hour)]`.
+- Output: Multi-horizon speed predictions `[batch_size, nodes=100, horizons=3]` corresponding to 5-minute, 15-minute, and 30-minute horizons.
 
-## 10. Web Dashboard (Frontend)
+### Heuristic Fallback
+- `compute_prediction()` in `services/routing-engine/app/models/heuristic.py` provides a deterministic polynomial formulation:
+  $$v_{pred} = v_{current} \cdot (1 - 0.3 \cdot s_{weather} - 0.5 \cdot I_{incident} - 0.2 \cdot s_{upstream}) + \alpha \cdot (v_{baseline} - v_{current})$$
+- Completely decoupled from PyTorch and CUDA dependencies to guarantee instant zero-dependency execution.
+- If `STGNN_ENABLED=false` or if model checkpoint loading fails, the system automatically routes prediction requests through this fallback and tags the response with `model_used="heuristic"`.
 
-- Vite + Vanilla JavaScript/CSS single-page application under `frontend/`.
-- Real-time service health monitoring, live Prometheus metrics parser.
-- Interactive multi-horizon speed prediction form with visual horizon bars.
-- Priority-weighted route ranking simulator with traffic assignment breakdown and raw explanation payload inspection.
-- Independent audit test harness (single outcome, batch outcome, and summary verification).
+---
 
-## 11. Model Training & Offline Pipeline
+## 5. Travel Time, Routing Equilibrium & Diversification
 
-- Standalone training pipeline in `services/routing-engine/scripts/train_stgnn.py`.
-- Generates sliding-window sequence tensors from `SyntheticDeterministicWorld`.
-- Trains `SpatioTemporalGNN` using PyTorch MSE loss across 5m, 15m, and 30m prediction horizons.
-- Exports validated model weights to `checkpoints/stgnn_default.pt` for direct loading via `STGNN_CHECKPOINT_PATH`.
+### Travel Time Estimation
+- Located in `services/routing-engine/app/routing/travel_time.py`.
+- Formulates travel time as $T = \frac{D}{v}$ with rigorous bounds:
+  - If $v \le 0$ or either input is `NaN`/`Inf`, returns sentinel travel time of $86,400.0\text{ s}$ (24 hours) to avoid division by zero while penalizing impassable edges.
+  - Normal travel time clamped between 1 second and 86,400 seconds.
 
-## 12. Background Ingestion Worker
+### Priority-Weighted Route Ranking
+- Located in `services/routing-engine/app/routing/priority_routing.py`.
+- Base cost of route $r$ is derived from predicted travel time $T_r$ and intrinsic priority score $P_r$:
+  $$\text{adjusted\_score}(r) = \frac{T_r}{P_r \cdot W(c)}$$
+  where $W(c)$ is the priority multiplier for trip category $c$ from the active policy schedule (e.g. `emergency` = 10.0, `commuter` = 1.0).
+- Lower adjusted score corresponds to higher ranking (rank 1 is best).
 
-- Periodic ingestion worker in `services/routing-engine/app/worker.py`.
-- Continuously executes `IngestPipeline.run_pipeline()` to poll feeds, merge readings, persist to TimescaleDB, and recalculate historical baselines.
+### Equilibrium Diversification
+- Prevents Braess's paradox and herd routing into a single corridor.
+- The top-ranked route is allocated a maximum fraction of total requests:
+  $$\text{max\_cap} = \lfloor N \cdot \text{cap\_fraction} \rfloor$$
+- Overflow vehicles are distributed to alternative ranked routes, backed by sliding-window Redis counters (`redis_counter.py`) or thread-safe in-memory sliding logs.
+- Prevents capacity spillover beyond `max_cap`.
 
-## 13. Containerization & CI Integration
+---
 
-- Multi-service orchestration in `infra/docker-compose.yml` with TimescaleDB, Redis, Routing Engine, Audit Service, and Frontend UI.
-- GitHub Actions CI workflow in `.github/workflows/ci.yml` validating Python typechecks, service test suites, and frontend build.
+## 6. Layer 2 Explanation Payload
 
-## 14. Performance Benchmarks
+Every routing decision emits a comprehensive Layer 2 explanation payload complying with `contracts/explanation-payload.schema.json`.
+- Crucial Architectural Rule: Explanation attributes are extracted directly from the local variables of the active ranking calculation.
+- Contains:
+  - `recommended_route`: Chosen route ID and predicted travel time.
+  - `alternatives_considered`: Ranked list of evaluated candidate routes.
+  - `diversification`: Boolean flag indicating if traffic splitting was applied, human-readable reason, and assignment pool percentage.
+  - `priority_context`: Trip category, applied weight, and `affected_ranking` boolean (indicating if the priority multiplier altered the winner).
+  - `weight_schedule_version`: Pinned policy version string.
 
-- Concurrency and latency benchmark suite in `tests/benchmarks/test_throughput.py` validating sub-50ms route ranking and high-throughput batch audit verification.
+---
 
+## 7. Layer 3 Independent Audit Service
+
+- Located in `services/audit-service/`.
+- Strict isolation: **Zero import dependencies** on `services/routing-engine`. Communication happens solely via contracts and database tables.
+- Evaluates route outcomes against version-pinned weight schedules.
+- Verifies:
+  1. Outcome timestamp falls within the policy's effective date window.
+  2. Trip category is valid.
+  3. Applied weight matches the published schedule (unlisted categories default to 1.0 per policy).
+  4. Policy version string matches.
+- Supports both single outcome auditing (`/audit/outcome`), bulk itemized auditing (`/audit/batch`), and aggregate summary verification (`/audit/summary`).
+
+---
+
+## 8. Root Test Runner Architecture
+
+Both microservices use the package name `app` internally (`services/routing-engine/app` and `services/audit-service/app`). To enable unified, seamless root test execution:
+- `pytest.ini` configures `--import-mode=importlib`.
+- Root `conftest.py` implements custom test collection and module caching management:
+  - Dynamically injects the specific service path into `sys.path`.
+  - Implements `_purge_app_modules()` before running tests from each service directory, clearing out cached `app.*` submodules from `sys.modules`.
+- Result: Developers can run `python -m pytest -q` from the repository root to execute all 136 tests across both services without collision.
+
+---
+
+## 9. Research & Evaluation Scripts
+
+Located in `scripts/`:
+1. `generate_synthetic_data.py`: CLI tool for generating synthetic traffic datasets across all 9 scenarios with metadata.
+2. `evaluate_models.py`: Calculates multi-horizon speed prediction accuracy (MAE, RMSE, MAPE) across 5m, 15m, and 30m intervals.
+3. `evaluate_routing.py`: Measures traffic distribution equilibrium and Herfindahl-Hirschman Index (HHI) concentration reduction.
+4. `evaluate_audit.py`: Validates policy defect detection rates, false acceptance rates, and verification throughput.
+5. `run_experiments.py`: Master orchestrator running the entire reproducible research evaluation suite and outputting summary reports.
