@@ -11,4 +11,9 @@ node_modules/
 frontend/node_modules/
 experiments/
 *stgnn_exp_*.pt
+data/raw/*.csv
+data/raw/*.pkl
+data/processed/
+*.npz
+*.parquet
 

@@ -12,6 +12,14 @@ class RunMode(str, Enum):
     PRODUCTION = "production"
 
 
+class DatasetMode(str, Enum):
+    """Traffic dataset source mode."""
+
+    SYNTHETIC = "synthetic"
+    METR_LA = "metr_la"
+    PEMS_BAY = "pems_bay"
+
+
 @dataclass(frozen=True)
 class FeedConfig:
     """Configuration for external data feed endpoints.
@@ -36,6 +44,13 @@ class Settings:
     """
 
     mode: RunMode = RunMode.SYNTHETIC
+    dataset_mode: DatasetMode = DatasetMode.SYNTHETIC
+
+    # Benchmark dataset paths
+    metr_la_data_path: str = "data/raw/METR-LA.csv"
+    metr_la_graph_path: str = "data/raw/adj_mx_METR-LA.pkl"
+    pems_bay_data_path: str = "data/raw/PEMS-BAY.csv"
+    pems_bay_graph_path: str = "data/raw/adj_mx_PEMS-BAY.pkl"
 
     database_url: str | None = None
     redis_url: str | None = None
@@ -63,6 +78,9 @@ class Settings:
         mode_raw = os.environ.get("ROUTING_MODE", "synthetic").lower()
         mode = RunMode(mode_raw) if mode_raw in RunMode.__members__.values() else RunMode.SYNTHETIC
 
+        ds_raw = os.environ.get("DATASET_MODE", "synthetic").lower()
+        dataset_mode = DatasetMode(ds_raw) if ds_raw in [e.value for e in DatasetMode] else DatasetMode.SYNTHETIC
+
         feeds = FeedConfig(
             traffic_url=os.environ.get("TRAFFIC_FEED_URL"),
             weather_url=os.environ.get("WEATHER_FEED_URL"),
@@ -72,6 +90,11 @@ class Settings:
 
         return cls(
             mode=mode,
+            dataset_mode=dataset_mode,
+            metr_la_data_path=os.environ.get("METR_LA_DATA_PATH", "data/raw/METR-LA.csv"),
+            metr_la_graph_path=os.environ.get("METR_LA_GRAPH_PATH", "data/raw/adj_mx_METR-LA.pkl"),
+            pems_bay_data_path=os.environ.get("PEMS_BAY_DATA_PATH", "data/raw/PEMS-BAY.csv"),
+            pems_bay_graph_path=os.environ.get("PEMS_BAY_GRAPH_PATH", "data/raw/adj_mx_PEMS-BAY.pkl"),
             database_url=os.environ.get("DATABASE_URL"),
             redis_url=os.environ.get("REDIS_URL"),
             feeds=feeds,

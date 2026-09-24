@@ -1,0 +1,17 @@
+dataset,configuration,horizon,mae,rmse,mape,r2
+pems_bay,Traffic_Only,5m,63.326,63.517,96.63,-165.0254
+pems_bay,Traffic_Only,15m,64.035,64.236,97.87,-158.7163
+pems_bay,Traffic_Only,30m,63.994,64.21,98.0,-147.0035
+pems_bay,Traffic_Only,overall,63.785,63.989,97.5,-156.4444
+pems_bay,Traffic_Temporal,5m,64.36,64.548,98.22,-170.4587
+pems_bay,Traffic_Temporal,15m,64.425,64.625,98.47,-160.6552
+pems_bay,Traffic_Temporal,30m,64.585,64.8,98.92,-149.7343
+pems_bay,Traffic_Temporal,overall,64.457,64.658,98.54,-159.7537
+pems_bay,Traffic_Graph,5m,63.3,63.492,96.58,-164.8988
+pems_bay,Traffic_Graph,15m,64.346,64.545,98.35,-160.2594
+pems_bay,Traffic_Graph,30m,64.151,64.367,98.24,-147.7244
+pems_bay,Traffic_Graph,overall,63.932,64.136,97.73,-157.1733
+pems_bay,Full_Model,5m,64.491,64.679,98.42,-171.1591
+pems_bay,Full_Model,15m,63.346,63.545,96.82,-155.3002
+pems_bay,Full_Model,30m,62.946,63.163,96.39,-142.2153
+pems_bay,Full_Model,overall,63.594,63.799,97.21,-155.5139

@@ -114,6 +114,24 @@ async function refreshHealth() {
       rh.predictor === 'loaded' ? 'ok' : rh.predictor === 'fallback' ? 'warn' : 'error');
     document.getElementById('health-predictor-detail').textContent =
       rh.predictor === 'loaded' ? 'ST-GNN model active' : 'Heuristic fallback';
+
+    if (rh.dataset) {
+      const nameEl = document.getElementById('telemetry-dataset-name');
+      const nodesEl = document.getElementById('telemetry-nodes');
+      const samplingEl = document.getElementById('telemetry-sampling');
+      const modelEl = document.getElementById('telemetry-model');
+      const versionEl = document.getElementById('telemetry-version');
+      const horizonsEl = document.getElementById('telemetry-horizons');
+      const selectEl = document.getElementById('dataset-select');
+
+      if (nameEl) nameEl.textContent = rh.dataset;
+      if (nodesEl) nodesEl.textContent = rh.num_nodes || '—';
+      if (samplingEl) samplingEl.textContent = rh.sampling_interval || '5 min';
+      if (modelEl) modelEl.textContent = rh.model || 'ST-GNN';
+      if (versionEl) versionEl.textContent = rh.model_version || 'stgnn-v1';
+      if (horizonsEl && rh.horizons) horizonsEl.textContent = rh.horizons.join(' / ');
+      if (selectEl && rh.dataset_mode) selectEl.value = rh.dataset_mode;
+    }
   } catch (err) {
     setStatusCard('health-routing-status', 'offline', 'error');
     setStatusCard('health-db-status', '—', 'error');
@@ -197,6 +215,24 @@ document.getElementById('btn-refresh-dashboard').addEventListener('click', () =>
   showToast('Refreshing dashboard…', 'info');
   refreshDashboard();
 });
+
+const btnApplyDataset = document.getElementById('btn-apply-dataset');
+if (btnApplyDataset) {
+  btnApplyDataset.addEventListener('click', async () => {
+    const ds = document.getElementById('dataset-select').value;
+    try {
+      await api(routingUrl('/dataset/select'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataset: ds }),
+      });
+      showToast(`Active dataset set to ${ds.toUpperCase()}`);
+      refreshHealth();
+    } catch (err) {
+      showToast(`Failed to switch dataset: ${err.message}`, 'error');
+    }
+  });
+}
 
 // Auto-refresh
 let dashboardInterval = setInterval(refreshDashboard, CONFIG.autoRefreshMs);

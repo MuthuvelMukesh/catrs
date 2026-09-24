@@ -1,0 +1,37 @@
+{
+  "dataset": "pems_bay",
+  "dataset_version": "1.0",
+  "random_seed": 42,
+  "model_architecture": "SpatioTemporalGNN",
+  "hyperparameters": {
+    "epochs": 2,
+    "batch_size": 32,
+    "learning_rate": 0.005,
+    "lookback": 12,
+    "hidden_size": 32,
+    "gcn_hidden": 32,
+    "dropout": 0.1,
+    "num_nodes": 325,
+    "feature_count": 4,
+    "num_horizons": 3
+  },
+  "feature_configuration": [
+    "traffic_speed",
+    "time_of_day",
+    "day_of_week",
+    "historical_baseline"
+  ],
+  "training_date": "2026-09-24T16:28:22.587735+00:00",
+  "git_commit": "b7f1635e8defc95c85b0ccde64cea56e045dccd6",
+  "evaluation_metrics": {
+    "train_mse": 4300.7339,
+    "val_mse": 3968.5383,
+    "val_mae": 62.8335,
+    "val_rmse": 62.9963,
+    "per_horizon_mae": {
+      "5m": 62.5578,
+      "15m": 62.9277,
+      "30m": 63.0149
+    }
+  }
+}

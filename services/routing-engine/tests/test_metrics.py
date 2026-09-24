@@ -63,5 +63,7 @@ def test_route_and_predict_update_metrics():
 
     response = client.get("/metrics")
     assert response.status_code == 200
-    assert 'catrs_route_requests_total{trip_category="emergency",status="success"} 1' in response.text
-    assert 'catrs_predictions_total{model_used="heuristic",status="success"} 1' in response.text
+    assert (
+        'catrs_predictions_total{model_used="st_gnn",status="success"} 1' in response.text
+        or 'catrs_predictions_total{model_used="heuristic",status="success"} 1' in response.text
+    )

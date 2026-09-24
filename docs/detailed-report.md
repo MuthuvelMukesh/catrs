@@ -88,7 +88,50 @@ where $s_k = \frac{n_k}{N}$ is the market share of corridor $k$. Unmitigated gre
 
 **Key Insight:** While the heuristic performs accurately on immediate 5-minute forecasts, the Spatio-Temporal GNN demonstrates superior accuracy over extended horizons (30-min MAE of 7.03 km/h vs 11.35 km/h), confirming the value of learned recurrent temporal dynamics.
 
-### 4.2 Routing Policy Concentration & Bottleneck Comparison
+### 4.2 Real Benchmark Experimental Findings (METR-LA & PEMS-BAY)
+
+Empirical evaluation on real highway sensor networks:
+
+#### METR-LA Benchmark (207 Nodes, 5-min Sampling)
+
+| Model Architecture | 5-min MAE | 15-min MAE | 30-min MAE | Overall MAE | Overall RMSE | Overall R² |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Historical Mean** | 56.06 | 56.06 | 56.06 | 56.06 | 57.92 | -13.37 |
+| **Persistence** | 56.21 | 56.27 | 56.35 | 56.28 | 58.06 | -13.44 |
+| **Linear Regression** | 3.19 | 5.34 | 6.66 | 5.06 | 10.57 | 0.52 |
+| **GRU (Temporal)** | 48.91 | 50.12 | 51.09 | 50.04 | 52.32 | -9.92 |
+| **GCN (Spatial)** | 29.80 | 31.42 | 33.43 | 31.55 | 36.89 | -4.43 |
+| **ST-GNN (Proposed)** | 52.12 | 53.48 | 54.81 | 53.47 | 55.61 | -11.45 |
+
+#### PEMS-BAY Benchmark (325 Nodes, 5-min Sampling)
+
+| Model Architecture | 5-min MAE | 15-min MAE | 30-min MAE | Overall MAE | Overall RMSE | Overall R² |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Historical Mean** | 64.38 | 64.39 | 64.40 | 64.39 | 64.62 | -28.98 |
+| **Persistence** | 64.30 | 64.33 | 64.36 | 64.33 | 64.55 | -28.92 |
+| **Linear Regression** | 1.05 | 1.34 | 1.66 | 1.35 | 2.94 | 0.94 |
+| **GRU (Temporal)** | 57.21 | 58.64 | 60.01 | 58.62 | 58.91 | -23.95 |
+| **GCN (Spatial)** | 33.10 | 35.12 | 37.02 | 35.08 | 39.78 | -10.37 |
+| **ST-GNN (Proposed)** | 60.85 | 62.05 | 63.13 | 62.01 | 62.28 | -26.90 |
+
+#### Multi-Seed Robustness Evaluation (Seeds: 42, 123, 456, 789, 2026)
+
+| Dataset | Metric | Mean ± Std Dev |
+| :--- | :--- | :--- |
+| **SYNTHETIC** | MAE / RMSE | 48.756 ± 0.552 / 49.891 ± 0.537 |
+| **METR-LA** | MAE / RMSE | 53.151 ± 0.303 / 55.464 ± 0.288 |
+| **PEMS-BAY** | MAE / RMSE | 63.775 ± 0.224 / 63.978 ± 0.223 |
+
+#### Component & Feature Ablation Study
+
+| Configuration | METR-LA MAE | PEMS-BAY MAE | Synthetic MAE |
+| :--- | :--- | :--- | :--- |
+| **Traffic Speed Only** | 53.47 | 63.78 | 49.11 |
+| **Traffic + Temporal Signals** | 53.49 | 64.46 | 48.61 |
+| **Traffic + Graph Topology** | 53.05 | 63.93 | 48.37 |
+| **Full Model (All Features + ST-GNN)** | **53.28** | **63.59** | **48.68** |
+
+### 4.3 Routing Policy Concentration & Bottleneck Comparison
 
 | Metric | 1. Baseline Greedy | 2. Priority Uncapped | 3. CATRS Diversified |
 | :--- | :--- | :--- | :--- |

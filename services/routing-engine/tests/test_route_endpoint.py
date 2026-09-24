@@ -1,9 +1,25 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def clean_redis():
+    """Ensure clean Redis state for reproducible assignment counts."""
+    import os
+    redis_url = os.environ.get("REDIS_URL")
+    if redis_url:
+        try:
+            import redis
+            r = redis.Redis.from_url(redis_url, socket_connect_timeout=1.0)
+            r.flushall()
+        except Exception:
+            pass
+    yield
 
 
 def test_route_endpoint_returns_ranking_assignments_and_explanation():

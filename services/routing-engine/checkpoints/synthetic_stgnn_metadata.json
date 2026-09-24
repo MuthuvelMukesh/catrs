@@ -1,0 +1,42 @@
+{
+  "dataset": "synthetic",
+  "dataset_version": "1.0",
+  "random_seed": 42,
+  "model_architecture": "SpatioTemporalGNN",
+  "hyperparameters": {
+    "epochs": 15,
+    "batch_size": 32,
+    "learning_rate": 0.005,
+    "lookback": 12,
+    "hidden_size": 32,
+    "gcn_hidden": 32,
+    "dropout": 0.1,
+    "num_nodes": 100,
+    "feature_count": 9,
+    "num_horizons": 3
+  },
+  "feature_configuration": [
+    "current_speed",
+    "current_volume",
+    "historical_baseline_speed",
+    "weather_severity_score",
+    "active_incident_flag",
+    "event_proximity_score",
+    "upstream_segment_congestion",
+    "sin_hour",
+    "cos_hour"
+  ],
+  "training_date": "2026-09-24T16:56:47.949661+00:00",
+  "git_commit": "b7f1635e8defc95c85b0ccde64cea56e045dccd6",
+  "evaluation_metrics": {
+    "train_mse": 92.8618,
+    "val_mse": 64.501,
+    "val_mae": 6.4022,
+    "val_rmse": 8.0313,
+    "per_horizon_mae": {
+      "5m": 6.3505,
+      "15m": 6.3951,
+      "30m": 6.461
+    }
+  }
+}

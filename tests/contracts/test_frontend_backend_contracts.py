@@ -82,9 +82,13 @@ def test_explanation_payload_schema_validates_route_endpoint_output():
 
 def test_audit_result_schema_validates_audit_endpoint_output():
     import sys
+    routing_path = str(ROOT_DIR / "services" / "routing-engine")
     audit_path = str(ROOT_DIR / "services" / "audit-service")
-    if audit_path not in sys.path:
-        sys.path.insert(0, audit_path)
+    while routing_path in sys.path:
+        sys.path.remove(routing_path)
+    while audit_path in sys.path:
+        sys.path.remove(audit_path)
+    sys.path.insert(0, audit_path)
 
     # Clean app from sys.modules for audit service
     for mod in list(sys.modules.keys()):

@@ -37,10 +37,61 @@ Returns service operational status. Supports deep dependency diagnostics via que
   "status": "ok",
   "database": "connected",
   "redis": "connected",
-  "predictor": "st_gnn"
+  "predictor": "loaded",
+  "dataset": "METR-LA",
+  "dataset_mode": "metr_la",
+  "num_nodes": 207,
+  "sampling_interval": "5 min",
+  "model": "ST-GNN",
+  "model_version": "stgnn-metrla-v1",
+  "horizons": ["5m", "15m", "30m"]
 }
 ```
-*(If dependencies are offline in synthetic mode, returns `"disconnected"` and `"fallback"` respectively).*
+
+---
+
+### 1a. Dataset Information
+`GET /dataset/info`
+
+Returns active traffic dataset details, sensor counts, sampling frequency, and model version.
+
+**Success Response (200 OK):**
+```json
+{
+  "dataset": "METR-LA",
+  "dataset_mode": "metr_la",
+  "num_nodes": 207,
+  "sampling_interval": "5 min",
+  "model": "ST-GNN",
+  "model_version": "stgnn-metrla-v1",
+  "horizons": ["5m", "15m", "30m"],
+  "available_datasets": ["synthetic", "metr_la", "pems_bay"]
+}
+```
+
+---
+
+### 1b. Dataset Selection
+`POST /dataset/select`
+
+Dynamically switches the active traffic data layer and loads the corresponding ST-GNN weights.
+
+**Request Body:**
+```json
+{
+  "dataset": "metr_la"
+}
+```
+*Valid choices: `synthetic`, `metr_la`, `pems_bay`.*
+
+**Success Response (200 OK):**
+```json
+{
+  "status": "success",
+  "selected_dataset": "metr_la",
+  "message": "Active dataset set to METR_LA"
+}
+```
 
 ---
 

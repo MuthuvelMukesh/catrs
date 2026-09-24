@@ -82,6 +82,15 @@ app.add_middleware(
 )
 
 
+class DatasetSelectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    dataset: str = Field(description="Dataset mode to switch to: synthetic, metr_la, or pems_bay")
+
+
+# Global active dataset state
+_active_dataset = "synthetic"
+
+
 @app.get("/health")
 def health(
     full: bool = False,
@@ -103,13 +112,75 @@ def health(
             if dependencies is not None and dependencies.prediction_service.has_model
             else "fallback"
         )
+
+        node_map = {"synthetic": 100, "metr_la": 207, "pems_bay": 325}
+        label_map = {"synthetic": "SYNTHETIC", "metr_la": "METR-LA", "pems_bay": "PEMS-BAY"}
+        version_map = {"synthetic": "stgnn-synthetic-v1", "metr_la": "stgnn-metrla-v1", "pems_bay": "stgnn-pemsbay-v1"}
+
+        ds_key = _active_dataset.lower()
+        metrics.set_dataset_info(ds_key, version_map.get(ds_key, "stgnn-v1"))
+
         return {
             "status": "ok",
             "database": db_status,
             "redis": redis_status,
             "predictor": model_status,
+            "dataset": label_map.get(ds_key, "SYNTHETIC"),
+            "dataset_mode": ds_key,
+            "num_nodes": node_map.get(ds_key, 100),
+            "sampling_interval": "5 min",
+            "model": "ST-GNN" if model_status == "loaded" else "Heuristic",
+            "model_version": version_map.get(ds_key, "stgnn-v1"),
+            "horizons": ["5m", "15m", "30m"],
         }
     return {"status": "ok"}
+
+
+@app.get("/dataset/info")
+def dataset_info(
+    dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+) -> dict[str, Any]:
+    """Return active dataset details, node counts, sampling intervals, and model version."""
+    node_map = {"synthetic": 100, "metr_la": 207, "pems_bay": 325}
+    label_map = {"synthetic": "SYNTHETIC", "metr_la": "METR-LA", "pems_bay": "PEMS-BAY"}
+    version_map = {"synthetic": "stgnn-synthetic-v1", "metr_la": "stgnn-metrla-v1", "pems_bay": "stgnn-pemsbay-v1"}
+
+    ds_key = _active_dataset.lower()
+    model_loaded = dependencies is not None and dependencies.prediction_service.has_model
+
+    return {
+        "dataset": label_map.get(ds_key, "SYNTHETIC"),
+        "dataset_mode": ds_key,
+        "num_nodes": node_map.get(ds_key, 100),
+        "sampling_interval": "5 min",
+        "model": "ST-GNN" if model_loaded else "Heuristic",
+        "model_version": version_map.get(ds_key, "stgnn-v1"),
+        "horizons": ["5m", "15m", "30m"],
+        "available_datasets": ["synthetic", "metr_la", "pems_bay"],
+    }
+
+
+@app.post("/dataset/select")
+def dataset_select(
+    request: DatasetSelectRequest,
+    dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+) -> dict[str, Any]:
+    """Select active dataset mode (synthetic, metr_la, pems_bay)."""
+    global _active_dataset
+    choice = request.dataset.lower()
+    if choice not in ("synthetic", "metr_la", "pems_bay"):
+        raise HTTPException(status_code=400, detail=f"Invalid dataset '{choice}'. Must be 'synthetic', 'metr_la', or 'pems_bay'.")
+
+    _active_dataset = choice
+    metrics.record_dataset_load(choice)
+    version_map = {"synthetic": "stgnn-synthetic-v1", "metr_la": "stgnn-metrla-v1", "pems_bay": "stgnn-pemsbay-v1"}
+    metrics.set_dataset_info(choice, version_map.get(choice, "stgnn-v1"))
+
+    return {
+        "status": "success",
+        "selected_dataset": choice,
+        "message": f"Active dataset set to {choice.upper()}",
+    }
 
 
 @app.get("/metrics", response_class=PlainTextResponse)

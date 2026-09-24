@@ -54,6 +54,54 @@
           <p>Real-time health status and metrics from both services.</p>
         </div>
 
+        <!-- Traffic Dataset & Model Telemetry (Phase 20) -->
+        <div class="card" style="margin-bottom: 24px; padding: 20px; border: 1px solid var(--border, #333); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                <span>🌐</span> Traffic Dataset & ST-GNN Telemetry
+              </h3>
+              <p style="margin: 4px 0 0 0; color: #888; font-size: 0.85rem;">Select active benchmark dataset and monitor node-level spatial forecasting status.</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label for="dataset-select" style="font-size: 0.85rem; color: #aaa;">Source:</label>
+              <select id="dataset-select" class="form-control" style="padding: 6px 12px; border-radius: 6px; background: #1a1a24; color: #eee; border: 1px solid #444; font-size: 0.85rem;">
+                <option value="synthetic">Synthetic (100 Nodes)</option>
+                <option value="metr_la">METR-LA (207 Nodes)</option>
+                <option value="pems_bay">PEMS-BAY (325 Nodes)</option>
+              </select>
+              <button class="btn btn--secondary btn--sm" id="btn-apply-dataset">Apply</button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Dataset</div>
+              <div id="telemetry-dataset-name" style="font-size: 1.1rem; font-weight: 600; color: #38bdf8;">SYNTHETIC</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Sensors / Nodes</div>
+              <div id="telemetry-nodes" style="font-size: 1.1rem; font-weight: 600; color: #4ade80;">100</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Sampling</div>
+              <div id="telemetry-sampling" style="font-size: 1.1rem; font-weight: 600; color: #facc15;">5 min</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Model</div>
+              <div id="telemetry-model" style="font-size: 1.1rem; font-weight: 600; color: #c084fc;">ST-GNN</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Model Version</div>
+              <div id="telemetry-version" style="font-size: 0.9rem; font-weight: 500; color: #94a3b8;">stgnn-synthetic-v1</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Prediction</div>
+              <div id="telemetry-horizons" style="font-size: 1.1rem; font-weight: 600; color: #f472b6;">5m / 15m / 30m</div>
+            </div>
+          </div>
+        </div>
+
         <div class="status-grid" id="health-cards">
           <!-- Routing Engine health cards -->
           <div class="card status-card">

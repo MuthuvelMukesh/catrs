@@ -25,6 +25,7 @@ class RuntimeDependencies:
     prediction_service: PredictionService
     baseline_repo: HistoricalBaselineRepository | None
     database_connection: Any | None
+    config: Settings | None = None
 
 
 def build_runtime_dependencies() -> RuntimeDependencies | None:
@@ -70,4 +71,5 @@ def build_runtime_dependencies() -> RuntimeDependencies | None:
         prediction_service=pred_service,
         baseline_repo=HistoricalBaselineRepository(db_conn) if db_conn else None,
         database_connection=db_conn,
+        config=config,
     )

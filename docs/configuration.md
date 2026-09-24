@@ -23,6 +23,11 @@ Class: `app.config.Settings` in `services/routing-engine/app/config.py`
 | Environment Variable | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `ROUTING_MODE` | `string` | `synthetic` | Operating mode: `synthetic` or `production`. In `synthetic` mode, deterministic simulated feeds are used regardless of external feed URLs. |
+| `DATASET_MODE` | `string` | `synthetic` | Selectable traffic data source: `synthetic`, `metr_la`, or `pems_bay`. |
+| `METR_LA_DATA_PATH` | `string` | `data/raw/METR-LA.csv` | File path to METR-LA sensor readings CSV. |
+| `METR_LA_GRAPH_PATH` | `string` | `data/raw/adj_mx_METR-LA.pkl` | File path to METR-LA adjacency matrix pickle. |
+| `PEMS_BAY_DATA_PATH` | `string` | `data/raw/PEMS-BAY.csv` | File path to PEMS-BAY sensor readings CSV. |
+| `PEMS_BAY_GRAPH_PATH` | `string` | `data/raw/adj_mx_PEMS-BAY.pkl` | File path to PEMS-BAY adjacency matrix pickle. |
 | `DATABASE_URL` | `string` | `None` | PostgreSQL / TimescaleDB connection URI (e.g. `postgresql://traffic:traffic@localhost:5432/traffic`). If unset or unreachable, the service operates in in-memory mode without persistence. |
 | `REDIS_URL` | `string` | `None` | Redis connection URI (e.g. `redis://localhost:6379/0`). If unset or unreachable, diversification counters fall back to thread-safe in-memory sliding window counters. |
 

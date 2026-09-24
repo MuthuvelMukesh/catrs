@@ -60,20 +60,44 @@ All scenarios accept an optional integer `seed` to guarantee bitwise-identical t
 
 ---
 
-## 4. Spatio-Temporal Prediction Pipeline (ST-GNN)
+## 4. Unified Traffic Data Layer & Benchmark Datasets
+
+### Unified Dataset Architecture
+CATRS implements an extensible data abstraction layer (`data/datasets/`):
+- `TrafficDataset`: Abstract base interface defining contracts for raw loading, feature extraction, graph construction, and sliding-window generation.
+- `MetrLaDataset`: Loader and processor for the Los Angeles County highway sensor network (207 sensors, 5-minute sampling interval).
+- `PemsBayDataset`: Loader and processor for the California Bay Area highway sensor network (325 sensors, 5-minute sampling interval).
+- `SyntheticTrafficDataset`: Wraps the 10x10 deterministic synthetic world (100 nodes, 9 scenarios).
+
+### Preprocessing & Zero-Leakage Pipeline
+1. **Timestamp Normalization & Chronological Sorting**: Guarantees strict monotonic progression.
+2. **Missing-Value Analysis**: Detects zero-readings from sensor outages and excludes them from mean/variance statistics.
+3. **Strict Zero-Leakage Splitting**: Splits data chronologically into 70% Train, 10% Validation, and 20% Test before normalization.
+4. **StandardScaler**: Fitted strictly on training observations ($\mu_{train}, \sigma_{train}$) and serialized to JSON.
+5. **Sliding-Window Sequence Generation**: Constructs lookback sequence tensors $X \in \mathbb{R}^{B \times 12 \times N \times F}$ and multi-horizon target speed matrices $Y \in \mathbb{R}^{B \times N \times 3}$ (+5m, +15m, +30m).
+
+---
+
+## 5. Spatio-Temporal Prediction Pipeline (ST-GNN)
 
 ### Model Architecture
 - Implemented in `services/routing-engine/app/models/st_gnn.py` using PyTorch.
-- Combines graph spatial propagation over the road adjacency matrix with a Gated Recurrent Unit (GRU) for temporal sequence dynamics.
-- Input: `[batch_size, timesteps=12, nodes=100, features=9]` tensor representing 1 hour of 5-minute historical intervals.
-- Feature dimensions: `[speed, volume, baseline_speed, weather_severity, incident_flag, event_proximity, upstream_congestion, sin(hour), cos(hour)]`.
-- Output: Multi-horizon speed predictions `[batch_size, nodes=100, horizons=3]` corresponding to 5-minute, 15-minute, and 30-minute horizons.
+- **Dynamic Variable Node Count**: Dynamically operates on variable sensor networks without hardcoded dimensions ($N \in \{100, 207, 325\}$).
+- **Spatial Message Passing**: 2-layer Graph Convolution (GCN) using symmetric normalized adjacency:
+  $$\hat{A} = \tilde{D}^{-\frac{1}{2}} \tilde{A} \tilde{D}^{-\frac{1}{2}}, \quad \tilde{A} = A + I_N$$
+  $$H^{(l+1)} = \text{ReLU}(\hat{A} H^{(l)} W^{(l)})$$
+- **Temporal Recurrence**: Gated Recurrent Unit (GRU) modeling time dependencies over spatial embeddings across historical timesteps.
+- **Node-Level Multi-Horizon Output Head**: Fully-connected projection emitting $[B, N, 3]$ speeds for all nodes across 5m, 15m, and 30m horizons.
+
+### Node-to-Road Mapping Layer
+- Implemented in `app/routing/node_mapping.py` (`SensorToRouteMapper`).
+- Translates sensor node predictions into directed routing segments:
+  $$\text{travel\_time} = \frac{\text{segment\_length}}{\text{predicted\_speed}} \times 3600$$
+- Maintains clear separation: Real benchmark datasets validate speed forecasting accuracy; synthetic scenarios validate priority routing, accident avoidance, and equilibrium diversification.
 
 ### Heuristic Fallback
-- `compute_prediction()` in `services/routing-engine/app/models/heuristic.py` provides a deterministic polynomial formulation:
-  $$v_{pred} = v_{current} \cdot (1 - 0.3 \cdot s_{weather} - 0.5 \cdot I_{incident} - 0.2 \cdot s_{upstream}) + \alpha \cdot (v_{baseline} - v_{current})$$
-- Completely decoupled from PyTorch and CUDA dependencies to guarantee instant zero-dependency execution.
-- If `STGNN_ENABLED=false` or if model checkpoint loading fails, the system automatically routes prediction requests through this fallback and tags the response with `model_used="heuristic"`.
+- `compute_prediction()` in `services/routing-engine/app/models/pipeline.py` provides a deterministic polynomial formulation.
+- If model checkpoint loading fails or PyTorch is unavailable, the service automatically executes this heuristic and flags the response with `model_used="heuristic"`.
 
 ---
 

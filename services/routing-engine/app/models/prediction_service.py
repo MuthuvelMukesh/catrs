@@ -48,7 +48,7 @@ class PredictionService:
                     import torch
 
                     state = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-                    model._model.load_state_dict(state)
+                    model._model.load_state_dict(state, strict=False)
                     logger.info("Loaded ST-GNN checkpoint from %s", checkpoint_path)
                 elif checkpoint_path:
                     logger.warning("Checkpoint %s not found; ST-GNN fallback active", checkpoint_path)

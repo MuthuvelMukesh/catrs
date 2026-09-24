@@ -1,0 +1,97 @@
+{
+  "inspected_at": "2026-09-24T21:30:46.218907",
+  "datasets": {
+    "METR_LA": {
+      "dataset": "METR_LA",
+      "csv_filename": "METR-LA.csv",
+      "pkl_filename": "adj_mx_METR-LA.pkl",
+      "num_nodes": 207,
+      "num_timesteps": 34272,
+      "timestamp_col": "Unnamed: 0",
+      "sampling_minutes": 5.0,
+      "time_start": "2012-03-01 00:00:00",
+      "time_end": "2012-06-27 23:55:00",
+      "is_chronological": true,
+      "duplicate_timestamps": 0,
+      "missing_values_count": 0,
+      "zero_values_count": 575302,
+      "zero_percentage": 8.11,
+      "speed_stats": {
+        "min": 0.0,
+        "max": 70.0,
+        "mean": 53.72,
+        "std": 19.19
+      },
+      "graph": {
+        "shape": [
+          207,
+          207
+        ],
+        "non_zero_edges": 1722,
+        "min_weight": 0.0,
+        "max_weight": 1.0,
+        "has_self_loops": true,
+        "sensor_count_match": true,
+        "exact_sensor_order_match": true
+      },
+      "sensor_ids_sample": [
+        "773869",
+        "767541",
+        "767542",
+        "717447",
+        "717446",
+        "717445",
+        "773062",
+        "767620",
+        "737529",
+        "717816"
+      ]
+    },
+    "PEMS_BAY": {
+      "dataset": "PEMS_BAY",
+      "csv_filename": "PEMS-BAY.csv",
+      "pkl_filename": "adj_mx_PEMS-BAY.pkl",
+      "num_nodes": 325,
+      "num_timesteps": 52116,
+      "timestamp_col": "Unnamed: 0",
+      "sampling_minutes": 5.0,
+      "time_start": "2017-01-01 00:00:00",
+      "time_end": "2017-06-30 23:55:00",
+      "is_chronological": true,
+      "duplicate_timestamps": 0,
+      "missing_values_count": 0,
+      "zero_values_count": 521,
+      "zero_percentage": 0.0,
+      "speed_stats": {
+        "min": 0.0,
+        "max": 85.1,
+        "mean": 62.62,
+        "std": 8.56
+      },
+      "graph": {
+        "shape": [
+          325,
+          325
+        ],
+        "non_zero_edges": 2694,
+        "min_weight": 0.0,
+        "max_weight": 1.0,
+        "has_self_loops": true,
+        "sensor_count_match": true,
+        "exact_sensor_order_match": true
+      },
+      "sensor_ids_sample": [
+        "400001",
+        "400017",
+        "400030",
+        "400040",
+        "400045",
+        "400052",
+        "400057",
+        "400059",
+        "400065",
+        "400069"
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # CATRS — Congestion-Aware Traffic Routing System
 
-[![Tests](https://img.shields.io/badge/Tests-135%20passed%2C%201%20skipped-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-149%20passed%2C%201%20skipped-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-teal.svg)]()
 [![PyTorch](https://img.shields.io/badge/PyTorch-ST--GNN-orange.svg)]()
@@ -599,31 +599,59 @@ The frontend dashboard (`frontend/index.html`) is built with modern vanilla CSS 
 
 ## 13. ML Model Training & Checkpoint Generation
 
-CATRS provides a complete PyTorch training pipeline to train the Spatio-Temporal Graph Neural Network on historical traffic sequences.
+CATRS provides a unified PyTorch training pipeline supporting genuine Spatial-Temporal Graph Neural Networks (GCN + GRU) across real benchmark datasets and the synthetic simulation world.
 
-### Training Command
+### Training Commands
+
 ```bash
-python services/routing-engine/scripts/train_stgnn.py \
-  --seed 42 \
-  --epochs 15 \
-  --batch-size 32 \
-  --learning-rate 0.001 \
-  --days 7 \
-  --nodes 100 \
-  --output services/routing-engine/checkpoints/stgnn_default.pt
+# 1. Train on Los Angeles County Highway Network (METR-LA: 207 Nodes)
+python services/routing-engine/scripts/train_stgnn.py --dataset metr_la --epochs 15 --batch-size 32
+
+# 2. Train on California Bay Area Highway Network (PEMS-BAY: 325 Nodes)
+python services/routing-engine/scripts/train_stgnn.py --dataset pems_bay --epochs 15 --batch-size 32
+
+# 3. Train on Controlled Synthetic Simulation World (100 Nodes, 14 Days)
+python services/routing-engine/scripts/train_stgnn.py --dataset synthetic --epochs 15 --days 14
 ```
 
-### Hyperparameters & Architecture:
-- **Graph Nodes**: 100 (10x10 planar grid)
-- **Input Features**: 9 per node (speed, volume, baseline, weather, incidents, event proximity, upstream bottleneck, sin/cos of hour)
-- **Lookback Window**: 12 timesteps (60 minutes at 5-minute intervals)
-- **Temporal Layer**: GRU (`hidden_size=32`, `num_layers=2`)
-- **Spatial Layer**: 2-layer Graph Convolution over normalized adjacency matrix
-- **Loss Function**: Mean Squared Error (MSE) over 5m, 15m, and 30m horizons
-- **Optimizer**: Adam with learning rate $1 \times 10^{-3}$
+### Reproducibility & Metadata Logging
+Every training run deterministically saves:
+- PyTorch state dictionary checkpoint: `checkpoints/{dataset}_stgnn.pt`
+- Machine-readable metadata JSON: `checkpoints/{dataset}_stgnn_metadata.json` (recording Git commit, random seed, exact hyperparameters, per-horizon MAE/RMSE, and architecture configuration).
 
-### Verification:
-The training script includes an automated post-save reload step that instantiates the checkpoint on CPU, executes a forward pass on random tensors, and confirms tensor dimensions `[batch, nodes, 3]` before exiting cleanly.
+### Hyperparameters & Architecture
+- **Variable Node Counts**: Dynamic node dimensionality ($N=207$ for METR-LA, $N=325$ for PEMS-BAY, $N=100$ for Synthetic).
+- **Spatial Message Passing**: 2-layer Graph Convolution $\hat{A} H W$ with symmetric normalized adjacency $\hat{A} = \tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2}$.
+- **Temporal Modeling**: Recurrent Gated Recurrent Unit (GRU).
+- **Node-Level Output Head**: Emits $[B, N, 3]$ speeds for all nodes across 5m, 15m, and 30m horizons.
+
+---
+
+## 13b. Research Evaluation & Baseline Benchmarking
+
+CATRS includes a rigorous evaluation suite comparing the proposed ST-GNN against standard research baselines:
+1. Historical Mean (profile baseline)
+2. Persistence (last observed speed)
+3. Linear Regression / Ridge
+4. GRU (pure temporal ablation)
+5. GCN (pure spatial ablation)
+6. Spatio-Temporal GNN (proposed integrated architecture)
+
+### Running Evaluation
+```bash
+# Evaluate all datasets with baselines, ablations, and 5-seed evaluation
+python scripts/evaluate_models.py --dataset all
+
+# Or evaluate a specific benchmark
+python scripts/evaluate_models.py --dataset metr_la
+python scripts/evaluate_models.py --dataset pems_bay
+python scripts/evaluate_models.py --dataset synthetic
+```
+
+All evaluation runs output machine-readable results to `results/{dataset}/`:
+- `metrics.json` and `metrics.csv`: MAE, RMSE, MAPE, and $R^2$ across 5m, 15m, and 30m horizons.
+- `multiseed_metrics.json`: Mean ± Standard Deviation across multiple seeds (42, 123, 456, 789, 2026).
+- `ablation.json` and `ablation.csv`: Component and feature ablation matrices.
 
 ---
 
@@ -637,9 +665,9 @@ python -m pytest -q
 ```
 **Expected Output:**
 ```text
-........................................................................................... [ 66%]
-...............................................s                                            [100%]
-135 passed, 1 skipped in 3.42s
+........................................................................................... [ 60%]
+............................................................s                                [100%]
+149 passed, 1 skipped in 15.07s
 ```
 *(1 test is skipped if live Docker containers are not running on the local host network).*
 

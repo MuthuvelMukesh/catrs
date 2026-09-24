@@ -1,0 +1,37 @@
+{
+  "dataset": "metr_la",
+  "dataset_version": "1.0",
+  "random_seed": 42,
+  "model_architecture": "SpatioTemporalGNN",
+  "hyperparameters": {
+    "epochs": 2,
+    "batch_size": 32,
+    "learning_rate": 0.005,
+    "lookback": 12,
+    "hidden_size": 32,
+    "gcn_hidden": 32,
+    "dropout": 0.1,
+    "num_nodes": 207,
+    "feature_count": 4,
+    "num_horizons": 3
+  },
+  "feature_configuration": [
+    "traffic_speed",
+    "time_of_day",
+    "day_of_week",
+    "historical_baseline"
+  ],
+  "training_date": "2026-09-24T16:26:00.598380+00:00",
+  "git_commit": "b7f1635e8defc95c85b0ccde64cea56e045dccd6",
+  "evaluation_metrics": {
+    "train_mse": 3147.53,
+    "val_mse": 2345.7542,
+    "val_mae": 44.0245,
+    "val_rmse": 48.433,
+    "per_horizon_mae": {
+      "5m": 42.9775,
+      "15m": 43.8881,
+      "30m": 45.2078
+    }
+  }
+}

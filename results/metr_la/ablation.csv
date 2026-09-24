@@ -1,0 +1,17 @@
+dataset,configuration,horizon,mae,rmse,mape,r2
+metr_la,Traffic_Only,5m,53.85,56.061,97.71,-11.9259
+metr_la,Traffic_Only,15m,53.209,55.496,96.77,-11.3625
+metr_la,Traffic_Only,30m,53.341,55.697,97.77,-11.0613
+metr_la,Traffic_Only,overall,53.467,55.752,97.42,-11.4394
+metr_la,Traffic_Temporal,5m,53.228,55.49,96.21,-11.6643
+metr_la,Traffic_Temporal,15m,53.7,55.984,97.8,-11.581
+metr_la,Traffic_Temporal,30m,53.544,55.907,98.16,-11.1523
+metr_la,Traffic_Temporal,overall,53.491,55.794,97.39,-11.4583
+metr_la,Traffic_Graph,5m,53.192,55.456,96.14,-11.6488
+metr_la,Traffic_Graph,15m,53.222,55.536,96.68,-11.3808
+metr_la,Traffic_Graph,30m,52.743,55.145,96.33,-10.8231
+metr_la,Traffic_Graph,overall,53.052,55.38,96.38,-11.2739
+metr_la,Full_Model,5m,54.139,56.345,98.33,-12.0576
+metr_la,Full_Model,15m,52.85,55.159,95.95,-11.2132
+metr_la,Full_Model,30m,52.86,55.261,96.57,-10.8729
+metr_la,Full_Model,overall,53.283,55.591,96.95,-11.3679
