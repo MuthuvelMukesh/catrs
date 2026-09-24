@@ -28,6 +28,14 @@ class RuntimeDependencies:
 
 
 def build_runtime_dependencies() -> RuntimeDependencies | None:
+    try:
+        import dotenv
+        env_path = dotenv.find_dotenv()
+        if env_path:
+            dotenv.load_dotenv(env_path)
+    except Exception:
+        pass
+
     database_url = os.environ.get("DATABASE_URL")
     redis_url = os.environ.get("REDIS_URL")
     config = Settings.from_env()

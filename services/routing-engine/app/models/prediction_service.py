@@ -36,6 +36,14 @@ class PredictionService:
                     hidden_size=getattr(config, "stgnn_hidden_size", 32),
                 )
                 checkpoint_path = getattr(config, "stgnn_checkpoint_path", None)
+                if checkpoint_path and not os.path.exists(checkpoint_path):
+                    alt_path = os.path.join(
+                        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                        checkpoint_path,
+                    )
+                    if os.path.exists(alt_path):
+                        checkpoint_path = alt_path
+
                 if checkpoint_path and os.path.exists(checkpoint_path):
                     import torch
 
