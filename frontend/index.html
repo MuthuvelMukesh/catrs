@@ -3,841 +3,839 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="CATRS — Congestion-Aware Traffic Routing System dashboard for real-time speed prediction, route ranking, and policy auditing." />
-  <title>CATRS — Traffic Routing Dashboard</title>
+  <meta name="description" content="CATRS — Congestion-Aware Traffic Routing System. Modern, light navigation platform for real-time speed forecasting, graph route planning, and policy auditing." />
+  <title>CATRS — Modern Traffic Routing & Navigation</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div id="app">
 
-    <!-- ═══ Header ═══ -->
-    <header class="header">
-      <div class="header__brand">
-        <div class="header__logo">TR</div>
-        <div>
-          <div class="header__title"><span>CATRS</span> Dashboard</div>
-          <div class="header__subtitle">Congestion-Aware Traffic Routing</div>
+    <!-- ═══ Slim Sidebar Navigation ═══ -->
+    <aside class="sidebar" id="app-sidebar" aria-label="Main Navigation">
+      <div class="sidebar__header">
+        <a href="#route" class="sidebar__brand">
+          <div class="sidebar__logo-icon">TR</div>
+          <div class="sidebar__brand-text">
+            <span class="sidebar__brand-name">CATRS</span>
+            <span class="sidebar__brand-badge">Navigation</span>
+          </div>
+        </a>
+      </div>
+
+      <nav class="sidebar__nav" role="tablist">
+        <button class="sidebar__link active" data-tab="route" id="tab-route" role="tab" aria-selected="true">
+          <span class="sidebar__link-icon">🗺️</span>
+          <span>Route Planner</span>
+        </button>
+        <button class="sidebar__link" data-tab="dashboard" id="tab-dashboard" role="tab" aria-selected="false">
+          <span class="sidebar__link-icon">📊</span>
+          <span>Dashboard</span>
+        </button>
+        <button class="sidebar__link" data-tab="predict" id="tab-predict" role="tab" aria-selected="false">
+          <span class="sidebar__link-icon">⚡</span>
+          <span>Speed Forecast</span>
+        </button>
+        <button class="sidebar__link" data-tab="audit" id="tab-audit" role="tab" aria-selected="false">
+          <span class="sidebar__link-icon">🛡️</span>
+          <span>Policy Audit</span>
+        </button>
+      </nav>
+
+      <div class="sidebar__footer">
+        <button class="sidebar__link" id="btn-sidebar-settings" style="margin-bottom: 4px;">
+          <span class="sidebar__link-icon">⚙️</span>
+          <span>Settings</span>
+        </button>
+        <button type="button" class="sidebar__toggle-btn" id="btn-toggle-sidebar" title="Collapse Sidebar">
+          <span id="sidebar-toggle-icon">◀</span>
+          <span id="sidebar-toggle-text">Collapse</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ═══ Main Content Area ═══ -->
+    <div class="app-main">
+
+      <!-- Top Navigation Bar -->
+      <header class="topbar">
+        <div class="topbar__left">
+          <div class="topbar__title">
+            <span class="topbar__title-crumb">CATRS /</span>
+            <span id="current-view-title">Route Planning</span>
+          </div>
+        </div>
+        <div class="topbar__right">
+          <span id="header-data-badge" class="badge-tag badge-tag--warning">🟡 Simulation</span>
+          <div class="status-pill">
+            <span class="status-dot" id="global-status-dot"></span>
+            <span id="global-status-text">Checking…</span>
+          </div>
+          <button class="btn btn--secondary btn--sm" id="btn-settings" title="Service Configuration">
+            ⚙ Settings
+          </button>
+        </div>
+      </header>
+
+      <!-- Degraded Fallback Banner -->
+      <div id="degraded-warning-container" style="display:none; margin: 16px 24px 0;">
+        <div class="degraded-banner">
+          <span>⚠️</span>
+          <span id="degraded-warning-text">System operating in degraded mode. Local fallback counter active.</span>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:16px;">
-        <span id="header-data-badge" class="badge" style="padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">🟡 Simulation</span>
-        <button class="btn btn--secondary btn--sm" id="btn-settings" title="Settings">⚙ Settings</button>
-        <div class="header__status">
-          <span class="header__status-dot" id="global-status-dot"></span>
-          <span id="global-status-text">Checking…</span>
-        </div>
-      </div>
-    </header>
 
-    <div id="degraded-warning-container" style="display:none; margin: 0 var(--space-xl) var(--space-md);">
-      <div class="degraded-banner">
-        <span>⚠️</span>
-        <span id="degraded-warning-text">System operating in degraded mode. Local fallback counter active.</span>
-      </div>
-    </div>
+      <!-- Content Area -->
+      <main class="content-area">
 
-    <!-- ═══ Tab Nav ═══ -->
-    <nav class="nav" aria-label="Main navigation">
-      <button class="nav__tab active" data-tab="dashboard" id="tab-dashboard">
-        <span class="nav__tab-icon">📊</span> Dashboard
-      </button>
-      <button class="nav__tab" data-tab="predict" id="tab-predict">
-        <span class="nav__tab-icon">🔮</span> Predict
-      </button>
-      <button class="nav__tab" data-tab="route" id="tab-route">
-        <span class="nav__tab-icon">🛣️</span> Route
-      </button>
-      <button class="nav__tab" data-tab="audit" id="tab-audit">
-        <span class="nav__tab-icon">🔍</span> Audit
-      </button>
-    </nav>
-
-    <!-- ═══ Main ═══ -->
-    <main class="main">
-
-      <!-- ── Dashboard Panel ── -->
-      <section class="tab-panel active" id="panel-dashboard">
-        <div class="section-header">
-          <h2>System Overview</h2>
-          <p>Real-time health status and metrics from both services.</p>
-        </div>
-
-        <!-- Traffic Dataset & Model Telemetry (Phase 20) -->
-        <div class="card" style="margin-bottom: 24px; padding: 20px; border: 1px solid var(--border, #333); border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <!-- ═════════════════════════════════════════════════════════
+             TAB 1: ROUTE PLANNER (HERO / CENTRAL VIEW)
+             ═════════════════════════════════════════════════════════ -->
+        <section class="tab-panel active" id="panel-route" role="tabpanel">
+          <div class="page-header">
             <div>
-              <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
-                <span>🌐</span> Traffic Dataset & ST-GNN Telemetry
-              </h3>
-              <p style="margin: 4px 0 0 0; color: #888; font-size: 0.85rem;">Select active benchmark dataset and monitor node-level spatial forecasting status.</p>
+              <h1 class="page-header__title">Traffic Navigation & Corridor Diversification</h1>
+              <p class="page-header__desc">Topological RoadGraph pathfinding with dynamic BPR congestion impedance, intersection delays, and rolling capacity caps.</p>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <label for="dataset-select" style="font-size: 0.85rem; color: #aaa;">Source:</label>
-              <select id="dataset-select" class="form-control" style="padding: 6px 12px; border-radius: 6px; background: #1a1a24; color: #eee; border: 1px solid #444; font-size: 0.85rem;">
-                <option value="synthetic">Synthetic (100 Nodes)</option>
-                <option value="metr_la">METR-LA (207 Nodes)</option>
-                <option value="pems_bay">PEMS-BAY (325 Nodes)</option>
-              </select>
-              <button class="btn btn--secondary btn--sm" id="btn-apply-dataset">Apply</button>
+            <!-- Subtab Switcher -->
+            <div class="subtab-buttons">
+              <button type="button" class="subtab-btn active" data-routesubtab="graph-plan" id="btn-routesubtab-graph">🗺️ Interactive Map</button>
+              <button type="button" class="subtab-btn" data-routesubtab="manual-corridor" id="btn-routesubtab-manual">📋 Custom Corridor Matrix</button>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Dataset</div>
-              <div id="telemetry-dataset-name" style="font-size: 1.1rem; font-weight: 600; color: #38bdf8;">SYNTHETIC</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Sensors / Nodes</div>
-              <div id="telemetry-nodes" style="font-size: 1.1rem; font-weight: 600; color: #4ade80;">100</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Sampling</div>
-              <div id="telemetry-sampling" style="font-size: 1.1rem; font-weight: 600; color: #facc15;">5 min</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Model</div>
-              <div id="telemetry-model" style="font-size: 1.1rem; font-weight: 600; color: #c084fc;">ST-GNN</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Model Version</div>
-              <div id="telemetry-version" style="font-size: 0.9rem; font-weight: 500; color: #94a3b8;">stgnn-synthetic-v1</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Prediction</div>
-              <div id="telemetry-horizons" style="font-size: 1.1rem; font-weight: 600; color: #f472b6;">5m / 15m / 30m</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Data Provenance</div>
-              <div id="telemetry-provenance" style="font-size: 0.95rem; font-weight: 600; color: #f59e0b;">Synthetic (Simulated)</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
-              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Predictor Health</div>
-              <div id="telemetry-predictor-health" style="font-size: 0.85rem; font-weight: 500; color: #10b981;">Champion: Persistence</div>
-            </div>
-          </div>
-        </div>
+          <!-- SUBPANEL 1: Graph Route Planner & Interactive Road Map -->
+          <div class="route-subpanel" id="route-subpanel-graph">
+            <div class="route-hero-container" id="route-hero-container">
 
-        <!-- ML Data Drift & Calibration Widget -->
-        <div class="card" style="margin-bottom: 24px; padding: 20px; border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 8px; background: rgba(0, 212, 255, 0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-            <div>
-              <h3 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                <span>📈</span> Sensor Speed Distribution Drift & Stability
-              </h3>
-              <p style="margin: 4px 0 0 0; color: #888; font-size: 0.82rem;">Kolmogorov-Smirnov CDF test & Population Stability Index (PSI) tracking sensor distribution shift.</p>
-            </div>
-            <div id="drift-status-badge" style="padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
-              🟢 Calibrated Envelope
-            </div>
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 12px;">
-            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
-              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">PSI Metric</div>
-              <div id="drift-psi" style="font-size: 1.05rem; font-weight: 700; color: #38bdf8; font-family: var(--font-mono);">0.0182</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
-              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">KS Statistic</div>
-              <div id="drift-ks-stat" style="font-size: 1.05rem; font-weight: 700; color: #a78bfa; font-family: var(--font-mono);">0.0410</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
-              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">KS P-Value</div>
-              <div id="drift-ks-p" style="font-size: 1.05rem; font-weight: 700; color: #facc15; font-family: var(--font-mono);">0.8521</div>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
-              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Sample / Baseline</div>
-              <div id="drift-sample-size" style="font-size: 0.95rem; font-weight: 600; color: #94a3b8; font-family: var(--font-mono);">100 / 500</div>
-            </div>
-          </div>
-          <div style="font-size: 0.8rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-            <div id="drift-recommendation">Distribution stable. Operating within expected calibration envelope.</div>
-            <div id="drift-evaluated-at" style="font-size: 0.72rem; color: #64748b; font-family: var(--font-mono);">Evaluated: Just now</div>
-          </div>
-        </div>
-
-        <div class="status-grid" id="health-cards">
-          <!-- Routing Engine health cards -->
-          <div class="card status-card">
-            <div class="status-card__label">Routing Engine</div>
-            <div class="status-card__value" id="health-routing-status">—</div>
-            <div class="status-card__detail" id="health-routing-detail"></div>
-          </div>
-          <div class="card status-card">
-            <div class="status-card__label">Database</div>
-            <div class="status-card__value" id="health-db-status">—</div>
-            <div class="status-card__detail">TimescaleDB connection</div>
-          </div>
-          <div class="card status-card">
-            <div class="status-card__label">Redis</div>
-            <div class="status-card__value" id="health-redis-status">—</div>
-            <div class="status-card__detail">Rolling window counters</div>
-          </div>
-          <div class="card status-card">
-            <div class="status-card__label">Predictor</div>
-            <div class="status-card__value" id="health-predictor-status">—</div>
-            <div class="status-card__detail" id="health-predictor-detail">ST-GNN / Heuristic</div>
-          </div>
-          <div class="card status-card">
-            <div class="status-card__label">Audit Service</div>
-            <div class="status-card__value" id="health-audit-status">—</div>
-            <div class="status-card__detail" id="health-audit-detail"></div>
-          </div>
-        </div>
-
-        <div class="metrics-grid">
-          <div class="card" id="metrics-routing-card">
-            <div class="card__header">
-              <span class="card__title">Routing Engine Metrics</span>
-              <span class="card__icon">📈</span>
-            </div>
-            <div id="metrics-routing-content">
-              <div class="loading-overlay"><span class="spinner"></span> Loading metrics…</div>
-            </div>
-          </div>
-          <div class="card" id="metrics-audit-card">
-            <div class="card__header">
-              <span class="card__title">Audit Service Metrics</span>
-              <span class="card__icon">📉</span>
-            </div>
-            <div id="metrics-audit-content">
-              <div class="loading-overlay"><span class="spinner"></span> Loading metrics…</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="btn-group">
-          <button class="btn btn--secondary" id="btn-refresh-dashboard">↻ Refresh Now</button>
-        </div>
-      </section>
-
-      <!-- ── Predict Panel ── -->
-      <section class="tab-panel" id="panel-predict">
-        <div class="section-header">
-          <h2>Speed Prediction</h2>
-          <p>Multi-horizon speed predictions (5m, 15m, 30m) for a road segment using ST-GNN or heuristic fallback.</p>
-        </div>
-
-        <div class="card">
-          <div class="card__header">
-            <span class="card__title">Prediction Request</span>
-            <span class="card__icon">🔮</span>
-          </div>
-          <form id="predict-form" class="form-grid">
-            <div class="form-group">
-              <label for="predict-segment-id">Segment ID</label>
-              <input type="text" id="predict-segment-id" placeholder="seg_01" value="seg_01" required />
-            </div>
-            <div class="form-group">
-              <label for="predict-current-speed">Current Speed</label>
-              <input type="number" id="predict-current-speed" placeholder="45.0" value="45.0" step="0.1" min="0.1" required />
-            </div>
-            <div class="form-group">
-              <label for="predict-current-volume">Current Volume</label>
-              <input type="number" id="predict-current-volume" placeholder="80" value="80" min="0" required />
-            </div>
-            <div class="form-group">
-              <label for="predict-baseline-speed">Historical Baseline Speed</label>
-              <input type="number" id="predict-baseline-speed" placeholder="55.0" value="55.0" step="0.1" min="0.1" required />
-            </div>
-            <div class="form-group">
-              <label for="predict-weather">Weather Severity (0–1)</label>
-              <input type="number" id="predict-weather" placeholder="0.2" value="0.2" step="0.01" min="0" max="1" />
-            </div>
-            <div class="form-group">
-              <label for="predict-event-prox">Event Proximity (0–1)</label>
-              <input type="number" id="predict-event-prox" placeholder="0.0" value="0.0" step="0.01" min="0" max="1" />
-            </div>
-            <div class="form-group">
-              <label for="predict-upstream">Upstream Congestion (0–1)</label>
-              <input type="number" id="predict-upstream" placeholder="0.1" value="0.1" step="0.01" min="0" max="1" />
-            </div>
-            <div class="form-group">
-              <label for="predict-hour">Time of Day (0–23)</label>
-              <input type="number" id="predict-hour" placeholder="8" value="8" min="0" max="23" />
-            </div>
-            <div class="form-group">
-              <label for="predict-dow">Day of Week (0–6)</label>
-              <input type="number" id="predict-dow" placeholder="1" value="1" min="0" max="6" />
-            </div>
-            <div class="checkbox-row">
-              <input type="checkbox" id="predict-incident" />
-              <label for="predict-incident">Active Incident</label>
-            </div>
-          </form>
-          <div class="btn-group">
-            <button type="submit" form="predict-form" class="btn btn--primary" id="btn-predict">⚡ Run Prediction</button>
-          </div>
-        </div>
-
-        <div class="result-panel hidden" id="predict-results">
-          <div class="card">
-            <div class="card__header">
-              <span class="card__title">Prediction Results</span>
-              <span class="card__icon">🎯</span>
-            </div>
-            <div class="prediction-results" id="predict-visual"></div>
-            <details style="margin-top:var(--space-lg)">
-              <summary style="cursor:pointer;color:var(--text-secondary);font-size:13px;">View Raw JSON</summary>
-              <pre class="result-json" id="predict-raw-json"></pre>
-            </details>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Route Panel ── -->
-      <section class="tab-panel" id="panel-route">
-        <div class="section-header">
-          <h2>Road Network Routing & Diversification</h2>
-          <p>Topological graph pathfinding (A* & Dijkstra), BPR congestion impedance, and rolling diversification caps.</p>
-        </div>
-
-        <!-- Subtab Switcher -->
-        <div class="subtab-buttons">
-          <button type="button" class="subtab-btn active" data-routesubtab="graph-plan" id="btn-routesubtab-graph">🗺️ Physical Road Graph Planner</button>
-          <button type="button" class="subtab-btn" data-routesubtab="manual-corridor" id="btn-routesubtab-manual">📋 Custom Corridor Matrix</button>
-        </div>
-
-        <!-- SUBPANEL 1: Graph Route Planner & Interactive Map -->
-        <div class="route-subpanel" id="route-subpanel-graph">
-          <div class="map-card-wrapper">
-            <!-- Left: Interactive Road Map -->
-            <div class="road-map-container">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
-                <span style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">
-                  Topology: Urban Arterials & Expressway Ring
-                </span>
-                <div style="display:flex; align-items:center; gap:12px;">
-                  <label style="font-size:11px; color:#94a3b8; cursor:pointer; display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:4px; border:1px solid rgba(255,255,255,0.1);">
-                    <input type="checkbox" id="toggle-congestion-heatmap" checked style="cursor:pointer;" />
-                    <span>🔥 Live Congestion Heatmap</span>
-                  </label>
-                  <span style="font-size:11px; color:#8892b0;">Click nodes to set Origin / Destination</span>
-                </div>
-              </div>
-              <div id="map-tooltip" class="map-tooltip"></div>
-              <svg id="road-network-svg" class="road-map-svg" viewBox="0 0 700 400">
-                <defs>
-                  <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
-                    <feGaussianBlur stdDeviation="4" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
-                  <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                  </filter>
-                  <marker id="arrow-corridor" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#00d4ff" />
-                  </marker>
-                </defs>
-
-                <!-- Base Grid Arterials -->
-                <g class="map-edges-base">
-                  <line id="edge-node_nw-node_n" x1="200" y1="110" x2="350" y2="110" class="map-edge arterial" />
-                  <line id="edge-node_n-node_ne" x1="350" y1="110" x2="500" y2="110" class="map-edge arterial" />
-                  <line id="edge-node_w-node_center" x1="200" y1="220" x2="350" y2="220" class="map-edge arterial" />
-                  <line id="edge-node_center-node_e" x1="350" y1="220" x2="500" y2="220" class="map-edge arterial" />
-                  <line id="edge-node_sw-node_s" x1="200" y1="330" x2="350" y2="330" class="map-edge arterial" />
-                  <line id="edge-node_s-node_se" x1="350" y1="330" x2="500" y2="330" class="map-edge arterial" />
-
-                  <line id="edge-node_nw-node_w" x1="200" y1="110" x2="200" y2="220" class="map-edge arterial" />
-                  <line id="edge-node_w-node_sw" x1="200" y1="220" x2="200" y2="330" class="map-edge arterial" />
-                  <line id="edge-node_ne-node_e" x1="500" y1="110" x2="500" y2="220" class="map-edge arterial" />
-                  <line id="edge-node_e-node_se" x1="500" y1="220" x2="500" y2="330" class="map-edge arterial" />
-
-                  <!-- One-way North-South Downtown Corridor -->
-                  <line id="edge-node_n-node_center" x1="350" y1="110" x2="350" y2="220" class="map-edge corridor" marker-end="url(#arrow-corridor)" />
-                  <line id="edge-node_center-node_s" x1="350" y1="220" x2="350" y2="330" class="map-edge corridor" marker-end="url(#arrow-corridor)" />
-
-                  <!-- Highway Bypass Ring -->
-                  <line id="edge-hwy_north-node_nw" x1="350" y1="30" x2="200" y2="110" class="map-edge highway" />
-                  <line id="edge-hwy_north-node_ne" x1="350" y1="30" x2="500" y2="110" class="map-edge highway" />
-                  <line id="edge-hwy_west-node_nw" x1="80" y1="220" x2="200" y2="110" class="map-edge highway" />
-                  <line id="edge-hwy_west-node_sw" x1="80" y1="220" x2="200" y2="330" class="map-edge highway" />
-                  <line id="edge-hwy_east-node_ne" x1="620" y1="220" x2="500" y2="110" class="map-edge highway" />
-                  <line id="edge-hwy_east-node_se" x1="620" y1="220" x2="500" y2="330" class="map-edge highway" />
-                  <line id="edge-hwy_west-hwy_north" x1="80" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
-                  <line id="edge-hwy_east-hwy_north" x1="620" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
-                </g>
-
-                <!-- Dynamic Highlight Path Overlay Layer -->
-                <g id="map-path-overlays"></g>
-
-                <!-- Nodes -->
-                <g class="map-nodes">
-                  <g class="map-node origin" data-node="node_nw" transform="translate(200, 110)">
-                    <circle r="7" />
-                    <text x="0" y="-12" text-anchor="middle">NW</text>
-                  </g>
-                  <g class="map-node" data-node="node_n" transform="translate(350, 110)">
-                    <circle r="7" />
-                    <text x="0" y="-12" text-anchor="middle">N</text>
-                  </g>
-                  <g class="map-node" data-node="node_ne" transform="translate(500, 110)">
-                    <circle r="7" />
-                    <text x="0" y="-12" text-anchor="middle">NE</text>
-                  </g>
-                  <g class="map-node" data-node="node_w" transform="translate(200, 220)">
-                    <circle r="7" />
-                    <text x="-16" y="4" text-anchor="end">W</text>
-                  </g>
-                  <g class="map-node" data-node="node_center" transform="translate(350, 220)">
-                    <circle r="8" />
-                    <text x="0" y="-13" text-anchor="middle">Center</text>
-                  </g>
-                  <g class="map-node" data-node="node_e" transform="translate(500, 220)">
-                    <circle r="7" />
-                    <text x="16" y="4" text-anchor="start">E</text>
-                  </g>
-                  <g class="map-node" data-node="node_sw" transform="translate(200, 330)">
-                    <circle r="7" />
-                    <text x="0" y="20" text-anchor="middle">SW</text>
-                  </g>
-                  <g class="map-node" data-node="node_s" transform="translate(350, 330)">
-                    <circle r="7" />
-                    <text x="0" y="20" text-anchor="middle">S</text>
-                  </g>
-                  <g class="map-node destination" data-node="node_se" transform="translate(500, 330)">
-                    <circle r="7" />
-                    <text x="0" y="20" text-anchor="middle">SE</text>
-                  </g>
-                  <g class="map-node" data-node="hwy_west" transform="translate(80, 220)">
-                    <circle r="6" />
-                    <text x="0" y="18" text-anchor="middle">Hwy-W</text>
-                  </g>
-                  <g class="map-node" data-node="hwy_east" transform="translate(620, 220)">
-                    <circle r="6" />
-                    <text x="0" y="18" text-anchor="middle">Hwy-E</text>
-                  </g>
-                  <g class="map-node" data-node="hwy_north" transform="translate(350, 30)">
-                    <circle r="6" />
-                    <text x="0" y="-10" text-anchor="middle">Hwy-N</text>
-                  </g>
-                </g>
-
-                <!-- Legend -->
-                <g transform="translate(20, 380)">
-                  <line x1="0" y1="0" x2="20" y2="0" stroke="#00ff88" stroke-width="3" />
-                  <text x="26" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Rank 1 (Selected)</text>
-                  <line x1="150" y1="0" x2="170" y2="0" stroke="#00d4ff" stroke-width="2.5" stroke-dasharray="4 2" />
-                  <text x="176" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Rank 2 (Alt)</text>
-                  <line x1="280" y1="0" x2="300" y2="0" stroke="#a855f7" stroke-width="2" stroke-dasharray="3 3" />
-                  <text x="306" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Rank 3 (Alt)</text>
-                  <line x1="410" y1="0" x2="430" y2="0" stroke="#ffb800" stroke-width="3" />
-                  <text x="436" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Expressway</text>
-                </g>
-              </svg>
-            </div>
-
-            <!-- Right: Controls -->
-            <div class="card" style="padding: 20px;">
-              <div class="card__header" style="margin-bottom: 12px;">
-                <span class="card__title">Plan Graph Trip</span>
-                <span class="card__icon">🎯</span>
-              </div>
-
-              <!-- Quick-Pick Scenario Presets -->
-              <div class="preset-toolbar" style="margin-bottom: 16px; background:rgba(0,0,0,0.25); padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size: 10px; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; font-weight: 700; letter-spacing:0.5px;">⚡ One-Click Scenarios</div>
-                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                  <button type="button" class="btn btn--sm btn--preset" data-preset="emergency" style="font-size: 11px; padding: 5px 10px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; cursor:pointer;">
-                    🚑 Emergency
-                  </button>
-                  <button type="button" class="btn btn--sm btn--preset" data-preset="commute" style="font-size: 11px; padding: 5px 10px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; cursor:pointer;">
-                    🚗 Peak Commute
-                  </button>
-                  <button type="button" class="btn btn--sm btn--preset" data-preset="freight" style="font-size: 11px; padding: 5px 10px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #fde047; cursor:pointer;">
-                    🚚 Freight Bypass
+              <!-- Floating Route-Planning Panel -->
+              <div class="floating-plan-panel" id="floating-plan-panel">
+                <div class="plan-panel__header">
+                  <span class="plan-panel__title">
+                    <span>🧭</span> Plan Best Route
+                  </span>
+                  <button type="button" class="btn btn--secondary btn--sm" id="btn-toggle-route-panel" title="Hide/Expand Panel" style="padding: 3px 8px; font-size: 11px;">
+                    ◀ Collapse
                   </button>
                 </div>
-              </div>
 
-              <form id="graph-plan-form">
-                <div class="form-group" style="margin-bottom: 14px;">
-                  <label for="plan-origin">Origin Node</label>
-                  <select id="plan-origin">
-                    <option value="node_nw" selected>North-West (node_nw)</option>
-                    <option value="node_n">North (node_n)</option>
-                    <option value="node_ne">North-East (node_ne)</option>
-                    <option value="node_w">West (node_w)</option>
-                    <option value="node_center">Downtown Center (node_center)</option>
-                    <option value="node_e">East (node_e)</option>
-                    <option value="node_sw">South-West (node_sw)</option>
-                    <option value="node_s">South (node_s)</option>
-                    <option value="node_se">South-East (node_se)</option>
-                    <option value="hwy_west">Highway West (hwy_west)</option>
-                    <option value="hwy_east">Highway East (hwy_east)</option>
-                    <option value="hwy_north">Highway North (hwy_north)</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 14px;">
-                  <label for="plan-destination">Destination Node</label>
-                  <select id="plan-destination">
-                    <option value="node_nw">North-West (node_nw)</option>
-                    <option value="node_n">North (node_n)</option>
-                    <option value="node_ne">North-East (node_ne)</option>
-                    <option value="node_w">West (node_w)</option>
-                    <option value="node_center">Downtown Center (node_center)</option>
-                    <option value="node_e">East (node_e)</option>
-                    <option value="node_sw">South-West (node_sw)</option>
-                    <option value="node_s">South (node_s)</option>
-                    <option value="node_se" selected>South-East (node_se)</option>
-                    <option value="hwy_west">Highway West (hwy_west)</option>
-                    <option value="hwy_east">Highway East (hwy_east)</option>
-                    <option value="hwy_north">Highway North (hwy_north)</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 14px;">
-                  <label for="plan-trip-category">Trip Category</label>
-                  <select id="plan-trip-category">
-                    <option value="emergency">emergency (Priority 5x)</option>
-                    <option value="commuter_general" selected>commuter_general</option>
-                    <option value="transit">transit (Priority 3x)</option>
-                    <option value="freight">freight (Priority 2x)</option>
-                  </select>
-                </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                  <div class="form-group">
-                    <label for="plan-request-count">Trip Count</label>
-                    <input type="number" id="plan-request-count" value="10" min="1" max="1000" />
-                  </div>
-                  <div class="form-group">
-                    <label for="plan-cap-fraction">Cap Fraction</label>
-                    <input type="number" id="plan-cap-fraction" value="0.5" step="0.05" min="0.1" max="1.0" />
+                <!-- One-Click Scenario Presets -->
+                <div class="scenario-presets">
+                  <div class="scenario-presets__label">⚡ One-Click Scenarios</div>
+                  <div class="scenario-presets__row">
+                    <button type="button" class="btn--preset" data-preset="emergency" title="Ambulance dispatch to emergency room">
+                      🚑 Emergency
+                    </button>
+                    <button type="button" class="btn--preset" data-preset="commute" title="Rush hour commute corridor diversification">
+                      🚗 Peak Commute
+                    </button>
+                    <button type="button" class="btn--preset" data-preset="freight" title="Commercial freight bypass">
+                      🚚 Freight
+                    </button>
                   </div>
                 </div>
-                <button type="submit" class="btn btn--primary" id="btn-graph-plan" style="width:100%; margin-top:8px;">
-                  🚀 Plan Physical Routes
-                </button>
+
+                <!-- Form Controls -->
+                <form id="graph-plan-form">
+                  <div class="form-group">
+                    <label for="plan-origin">
+                      <span class="location-marker-origin"></span> Origin Location
+                    </label>
+                    <select id="plan-origin">
+                      <option value="node_nw" selected>North-West (node_nw)</option>
+                      <option value="node_n">North (node_n)</option>
+                      <option value="node_ne">North-East (node_ne)</option>
+                      <option value="node_w">West (node_w)</option>
+                      <option value="node_center">Downtown Center (node_center)</option>
+                      <option value="node_e">East (node_e)</option>
+                      <option value="node_sw">South-West (node_sw)</option>
+                      <option value="node_s">South (node_s)</option>
+                      <option value="node_se">South-East (node_se)</option>
+                      <option value="hwy_west">Highway West (hwy_west)</option>
+                      <option value="hwy_east">Highway East (hwy_east)</option>
+                      <option value="hwy_north">Highway North (hwy_north)</option>
+                    </select>
+                  </div>
+
+                  <!-- Swap Locations Control -->
+                  <div class="swap-locations-wrapper">
+                    <button type="button" class="btn-swap" id="btn-swap-nodes" title="Swap Origin and Destination (⇅)" aria-label="Swap Origin and Destination">
+                      ⇅
+                    </button>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="plan-destination">
+                      <span class="location-marker-dest"></span> Destination Location
+                    </label>
+                    <select id="plan-destination">
+                      <option value="node_nw">North-West (node_nw)</option>
+                      <option value="node_n">North (node_n)</option>
+                      <option value="node_ne">North-East (node_ne)</option>
+                      <option value="node_w">West (node_w)</option>
+                      <option value="node_center">Downtown Center (node_center)</option>
+                      <option value="node_e">East (node_e)</option>
+                      <option value="node_sw">South-West (node_sw)</option>
+                      <option value="node_s">South (node_s)</option>
+                      <option value="node_se" selected>South-East (node_se)</option>
+                      <option value="hwy_west">Highway West (hwy_west)</option>
+                      <option value="hwy_east">Highway East (hwy_east)</option>
+                      <option value="hwy_north">Highway North (hwy_north)</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="plan-category">Trip Priority Category</label>
+                    <select id="plan-category">
+                      <option value="emergency">Emergency / Priority Dispatch</option>
+                      <option value="commuter_general" selected>Commuter (General Traffic)</option>
+                      <option value="freight">Commercial Freight</option>
+                      <option value="transit_bus">Public Transit Bus</option>
+                    </select>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                      <label for="plan-requests">Trip Count</label>
+                      <input type="number" id="plan-requests" value="10" min="1" max="1000" />
+                    </div>
+                    <div class="form-group">
+                      <label for="plan-cap">Cap Fraction</label>
+                      <input type="number" id="plan-cap" value="0.5" step="0.05" min="0.05" max="1.0" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="plan-k">Route Alternatives</label>
+                    <select id="plan-k">
+                      <option value="2">2 Alternative Paths</option>
+                      <option value="3" selected>3 Alternative Paths</option>
+                      <option value="4">4 Alternative Paths</option>
+                    </select>
+                  </div>
+
+                  <!-- Prominent Blue "Find Best Route" Button -->
+                  <button type="submit" class="btn btn--primary btn--full btn--lg" id="btn-plan-graph-route" style="margin-top: 6px;">
+                    Find Best Route ➜
+                  </button>
+                </form>
+              </div>
+
+              <!-- Interactive Central Road Map -->
+              <div class="road-map-card">
+                <div class="road-map-toolbar">
+                  <div class="road-map-toolbar__title">
+                    <span>🛣️</span> Urban Arterials & Expressway Ring
+                  </div>
+                  <div class="road-map-toolbar__controls">
+                    <label class="map-control-toggle">
+                      <input type="checkbox" id="toggle-congestion-heatmap" checked />
+                      <span>🔥 Live Speed Heatmap</span>
+                    </label>
+                    <button type="button" class="btn btn--secondary btn--sm" id="btn-expand-map-toggle" style="display:none;">
+                      ▶ Show Planner
+                    </button>
+                    <span style="font-size: 11px; color: var(--text-muted);">Click nodes to set Origin / Destination</span>
+                  </div>
+                </div>
+
+                <div class="road-map-wrapper">
+                  <div id="map-tooltip" class="map-tooltip"></div>
+                  <svg id="road-network-svg" class="road-map-svg" viewBox="0 0 700 400">
+                    <defs>
+                      <marker id="arrow-corridor" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+                      </marker>
+                    </defs>
+
+                    <!-- Base Grid Arterials -->
+                    <g class="map-edges-base">
+                      <line id="edge-node_nw-node_n" x1="200" y1="110" x2="350" y2="110" class="map-edge arterial" />
+                      <line id="edge-node_n-node_ne" x1="350" y1="110" x2="500" y2="110" class="map-edge arterial" />
+                      <line id="edge-node_w-node_center" x1="200" y1="220" x2="350" y2="220" class="map-edge arterial" />
+                      <line id="edge-node_center-node_e" x1="350" y1="220" x2="500" y2="220" class="map-edge arterial" />
+                      <line id="edge-node_sw-node_s" x1="200" y1="330" x2="350" y2="330" class="map-edge arterial" />
+                      <line id="edge-node_s-node_se" x1="350" y1="330" x2="500" y2="330" class="map-edge arterial" />
+
+                      <line id="edge-node_nw-node_w" x1="200" y1="110" x2="200" y2="220" class="map-edge arterial" />
+                      <line id="edge-node_w-node_sw" x1="200" y1="220" x2="200" y2="330" class="map-edge arterial" />
+                      <line id="edge-node_ne-node_e" x1="500" y1="110" x2="500" y2="220" class="map-edge arterial" />
+                      <line id="edge-node_e-node_se" x1="500" y1="220" x2="500" y2="330" class="map-edge arterial" />
+
+                      <!-- One-way North-South Downtown Corridor -->
+                      <line id="edge-node_n-node_center" x1="350" y1="110" x2="350" y2="220" class="map-edge corridor" marker-end="url(#arrow-corridor)" />
+                      <line id="edge-node_center-node_s" x1="350" y1="220" x2="350" y2="330" class="map-edge corridor" marker-end="url(#arrow-corridor)" />
+
+                      <!-- Highway Bypass Ring -->
+                      <line id="edge-hwy_north-node_nw" x1="350" y1="30" x2="200" y2="110" class="map-edge highway" />
+                      <line id="edge-hwy_north-node_ne" x1="350" y1="30" x2="500" y2="110" class="map-edge highway" />
+                      <line id="edge-hwy_west-node_nw" x1="80" y1="220" x2="200" y2="110" class="map-edge highway" />
+                      <line id="edge-hwy_west-node_sw" x1="80" y1="220" x2="200" y2="330" class="map-edge highway" />
+                      <line id="edge-hwy_east-node_ne" x1="620" y1="220" x2="500" y2="110" class="map-edge highway" />
+                      <line id="edge-hwy_east-node_se" x1="620" y1="220" x2="500" y2="330" class="map-edge highway" />
+                      <line id="edge-hwy_west-hwy_north" x1="80" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
+                      <line id="edge-hwy_east-hwy_north" x1="620" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
+                    </g>
+
+                    <!-- Dynamic Highlight Path Overlay Layer -->
+                    <g id="map-path-overlays"></g>
+
+                    <!-- Nodes -->
+                    <g class="map-nodes">
+                      <g class="map-node origin" data-node="node_nw" transform="translate(200, 110)">
+                        <circle r="7" />
+                        <text x="0" y="-12" text-anchor="middle">NW</text>
+                      </g>
+                      <g class="map-node" data-node="node_n" transform="translate(350, 110)">
+                        <circle r="7" />
+                        <text x="0" y="-12" text-anchor="middle">N</text>
+                      </g>
+                      <g class="map-node" data-node="node_ne" transform="translate(500, 110)">
+                        <circle r="7" />
+                        <text x="0" y="-12" text-anchor="middle">NE</text>
+                      </g>
+                      <g class="map-node" data-node="node_w" transform="translate(200, 220)">
+                        <circle r="7" />
+                        <text x="-16" y="4" text-anchor="end">W</text>
+                      </g>
+                      <g class="map-node" data-node="node_center" transform="translate(350, 220)">
+                        <circle r="8" />
+                        <text x="0" y="-13" text-anchor="middle">Center</text>
+                      </g>
+                      <g class="map-node" data-node="node_e" transform="translate(500, 220)">
+                        <circle r="7" />
+                        <text x="16" y="4" text-anchor="start">E</text>
+                      </g>
+                      <g class="map-node" data-node="node_sw" transform="translate(200, 330)">
+                        <circle r="7" />
+                        <text x="0" y="20" text-anchor="middle">SW</text>
+                      </g>
+                      <g class="map-node" data-node="node_s" transform="translate(350, 330)">
+                        <circle r="7" />
+                        <text x="0" y="20" text-anchor="middle">S</text>
+                      </g>
+                      <g class="map-node destination" data-node="node_se" transform="translate(500, 330)">
+                        <circle r="7" />
+                        <text x="0" y="20" text-anchor="middle">SE</text>
+                      </g>
+                      <g class="map-node" data-node="hwy_west" transform="translate(80, 220)">
+                        <circle r="6" />
+                        <text x="0" y="18" text-anchor="middle">Hwy-W</text>
+                      </g>
+                      <g class="map-node" data-node="hwy_east" transform="translate(620, 220)">
+                        <circle r="6" />
+                        <text x="0" y="18" text-anchor="middle">Hwy-E</text>
+                      </g>
+                      <g class="map-node" data-node="hwy_north" transform="translate(350, 30)">
+                        <circle r="6" />
+                        <text x="0" y="-10" text-anchor="middle">Hwy-N</text>
+                      </g>
+                    </g>
+
+                    <!-- Map Legend -->
+                    <g transform="translate(20, 380)">
+                      <line x1="0" y1="0" x2="20" y2="0" stroke="#2563eb" stroke-width="4" />
+                      <text x="26" y="4" fill="#475569" font-size="10" font-family="var(--font-sans)" font-weight="600">Selected Route</text>
+                      <line x1="140" y1="0" x2="160" y2="0" stroke="#0284c7" stroke-width="3" stroke-dasharray="4 2" />
+                      <text x="166" y="4" fill="#475569" font-size="10" font-family="var(--font-sans)">Alt Route 1</text>
+                      <line x1="260" y1="0" x2="280" y2="0" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="3 3" />
+                      <text x="286" y="4" fill="#475569" font-size="10" font-family="var(--font-sans)">Alt Route 2</text>
+                      <line x1="380" y1="0" x2="400" y2="0" stroke="#94a3b8" stroke-width="3.5" />
+                      <text x="406" y="4" fill="#475569" font-size="10" font-family="var(--font-sans)">Expressway</text>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Graph Route Comparison Results -->
+            <div class="routes-results-container hidden" id="graph-plan-results">
+              <div class="routes-results-header">
+                <div>
+                  <h2 style="font-size: 16px; font-weight: 700; color: var(--text-primary);">Route Comparison & Traffic Allocation</h2>
+                  <p style="font-size: 12px; color: var(--text-muted);">Estimated travel times, road distances, and rolling volume assignments.</p>
+                </div>
+              </div>
+
+              <!-- Compact Comparison Panels (Travel Time Prominent) -->
+              <div class="ranked-cards-grid" id="graph-paths-visual"></div>
+
+              <!-- Traffic Allocation Bar -->
+              <div class="assignments-bar-wrapper">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                  Corridor Capacity Distribution
+                </div>
+                <div class="assignments-bar" id="graph-assignments-bar"></div>
+              </div>
+
+              <!-- Decision Explanation Payload -->
+              <div class="card" style="margin-bottom: 20px;">
+                <div class="card__header">
+                  <span class="card__title">Routing Decision Explanation</span>
+                  <span class="badge-tag badge-tag--info">Audit Trail</span>
+                </div>
+                <div class="explanation-grid" id="graph-explanation-grid"></div>
+              </div>
+
+              <!-- Raw JSON Details -->
+              <div class="card">
+                <details>
+                  <summary style="cursor: pointer; color: var(--text-muted); font-size: 12px; font-weight: 500;">View Raw Navigation Response (JSON)</summary>
+                  <pre class="result-json" id="graph-raw-json" style="margin-top: 10px; background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md); font-size: 11px; overflow-x: auto; border: 1px solid var(--border-subtle);"></pre>
+                </details>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- SUBPANEL 2: Custom Corridor Matrix -->
+          <div class="route-subpanel hidden" id="route-subpanel-manual">
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Custom Candidate Route Array</span>
+                <button type="button" class="btn btn--secondary btn--sm" id="btn-add-route">+ Add Route</button>
+              </div>
+              <form id="route-form">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                  <div class="form-group">
+                    <label for="route-trip-category">Trip Category</label>
+                    <select id="route-trip-category">
+                      <option value="commuter_general">Commuter (General)</option>
+                      <option value="emergency">Emergency</option>
+                      <option value="freight">Freight</option>
+                      <option value="transit_bus">Transit Bus</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="route-request-count">Request Count</label>
+                    <input type="number" id="route-request-count" value="10" min="1" />
+                  </div>
+                  <div class="form-group">
+                    <label for="route-cap-fraction">Cap Fraction</label>
+                    <input type="number" id="route-cap-fraction" value="0.5" step="0.05" min="0.05" max="1.0" />
+                  </div>
+                  <div class="form-group">
+                    <label for="route-weight-version">Schedule Version</label>
+                    <input type="text" id="route-weight-version" value="2026-08-26-v1" />
+                  </div>
+                </div>
+
+                <div class="route-rows" id="route-rows">
+                  <div class="route-row" data-route-idx="0">
+                    <div class="form-group">
+                      <label>Route ID</label>
+                      <input type="text" class="route-id" value="route_north" required />
+                    </div>
+                    <div class="form-group">
+                      <label>Travel Time (s)</label>
+                      <input type="number" class="route-tt" value="400" step="1" min="0" />
+                    </div>
+                    <div class="form-group">
+                      <label>Priority Score</label>
+                      <input type="number" class="route-priority" value="2.0" step="0.1" />
+                    </div>
+                    <div class="form-group">
+                      <label>Distance (m)</label>
+                      <input type="number" class="route-distance" value="4000" step="1" min="1" />
+                    </div>
+                    <div class="form-group">
+                      <label>Speed 5m</label>
+                      <input type="number" class="route-speed5m" value="36.0" step="0.1" min="0.1" />
+                    </div>
+                    <button type="button" class="btn btn--secondary btn--sm btn-remove-route" style="color:var(--traffic-red); border-color:var(--traffic-red-border);">✕</button>
+                  </div>
+                  <div class="route-row" data-route-idx="1">
+                    <div class="form-group">
+                      <label>Route ID</label>
+                      <input type="text" class="route-id" value="route_south" required />
+                    </div>
+                    <div class="form-group">
+                      <label>Travel Time (s)</label>
+                      <input type="number" class="route-tt" value="500" step="1" min="0" />
+                    </div>
+                    <div class="form-group">
+                      <label>Priority Score</label>
+                      <input type="number" class="route-priority" value="1.0" step="0.1" />
+                    </div>
+                    <div class="form-group">
+                      <label>Distance (m)</label>
+                      <input type="number" class="route-distance" placeholder="Optional" step="1" min="1" />
+                    </div>
+                    <div class="form-group">
+                      <label>Speed 5m</label>
+                      <input type="number" class="route-speed5m" placeholder="Optional" step="0.1" min="0.1" />
+                    </div>
+                    <button type="button" class="btn btn--secondary btn--sm btn-remove-route" style="color:var(--traffic-red); border-color:var(--traffic-red-border);">✕</button>
+                  </div>
+                </div>
               </form>
+              <div class="btn-group" style="margin-top: 16px;">
+                <button type="submit" form="route-form" class="btn btn--primary" id="btn-route">Rank Routes</button>
+              </div>
+            </div>
+
+            <div class="result-panel hidden" id="route-results" style="margin-top: 20px;">
+              <div class="card" style="margin-bottom: 16px;">
+                <div class="card__header">
+                  <span class="card__title">Ranked Route Outcomes</span>
+                </div>
+                <div class="ranked-routes" id="route-ranked-visual"></div>
+              </div>
+              <div class="card" style="margin-bottom: 16px;">
+                <div class="card__header">
+                  <span class="card__title">Traffic Assignments</span>
+                </div>
+                <div class="assignments-bar" id="route-assignments-bar"></div>
+              </div>
+              <div class="card" style="margin-bottom: 16px;">
+                <div class="card__header">
+                  <span class="card__title">Policy Explanation</span>
+                </div>
+                <div class="explanation-grid" id="route-explanation-grid"></div>
+              </div>
+              <div class="card">
+                <details>
+                  <summary style="cursor:pointer;color:var(--text-muted);font-size:12px;">View Raw JSON</summary>
+                  <pre class="result-json" id="route-raw-json" style="margin-top: 10px; background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md); font-size: 11px; overflow-x: auto; border: 1px solid var(--border-subtle);"></pre>
+                </details>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═════════════════════════════════════════════════════════
+             TAB 2: DASHBOARD (OVERVIEW, ML TELEMETRY, & DRIFT)
+             ═════════════════════════════════════════════════════════ -->
+        <section class="tab-panel" id="panel-dashboard" role="tabpanel">
+          <div class="page-header">
+            <div>
+              <h1 class="page-header__title">System Overview & ML Telemetry</h1>
+              <p class="page-header__desc">Live node metrics, ST-GNN neural model health, and sensor distribution stability.</p>
+            </div>
+            <button class="btn btn--secondary btn--sm" id="btn-refresh-dashboard">↻ Refresh</button>
+          </div>
+
+          <!-- Dataset & Model Telemetry -->
+          <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 style="font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                  <span>🌐</span> Traffic Dataset & ST-GNN Telemetry
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Active spatial sensor graph and deep neural network configuration.</p>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <label for="dataset-select" style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Dataset:</label>
+                <select id="dataset-select" style="padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-default);">
+                  <option value="synthetic">Synthetic (100 Nodes)</option>
+                  <option value="metr_la">METR-LA (207 Nodes)</option>
+                  <option value="pems_bay">PEMS-BAY (325 Nodes)</option>
+                </select>
+                <button class="btn btn--secondary btn--sm" id="btn-apply-dataset">Apply</button>
+              </div>
+            </div>
+
+            <div class="metrics-summary-grid">
+              <div class="metric-tile">
+                <div class="metric-tile__label">Dataset</div>
+                <div class="metric-tile__val" id="telemetry-dataset-name" style="color: var(--primary);">SYNTHETIC</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Sensors / Nodes</div>
+                <div class="metric-tile__val" id="telemetry-nodes" style="color: var(--traffic-green);">100</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Sampling</div>
+                <div class="metric-tile__val" id="telemetry-sampling">5 min</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Model</div>
+                <div class="metric-tile__val" id="telemetry-model">ST-GNN</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Version</div>
+                <div class="metric-tile__val" id="telemetry-version" style="font-size: 14px;">stgnn-synthetic-v1</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Horizons</div>
+                <div class="metric-tile__val" id="telemetry-horizons" style="font-size: 14px;">5m / 15m / 30m</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Provenance</div>
+                <div class="metric-tile__val" id="telemetry-provenance" style="font-size: 13px; color: var(--traffic-amber);">Synthetic (Simulated)</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Health Status</div>
+                <div class="metric-tile__val" id="telemetry-predictor-health" style="font-size: 12px; color: var(--traffic-green);">Champion: Persistence</div>
+              </div>
             </div>
           </div>
 
-          <!-- Results for Graph Planner -->
-          <div class="result-panel hidden" id="graph-plan-results" style="margin-top: var(--space-xl);">
-            <!-- Comparison Visual -->
-            <div class="card" style="margin-bottom: var(--space-md);">
-              <div class="card__header">
-                <span class="card__title">Physical Alternative Corridors (A* / Dijkstra)</span>
-                <span class="card__icon">🛣️</span>
+          <!-- ML Data Drift & Calibration Widget -->
+          <div class="card" style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 style="font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                  <span>📈</span> Sensor Speed Distribution Drift & Stability
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Continuous Kolmogorov-Smirnov test & Population Stability Index (PSI) tracking sensor distribution shift.</p>
               </div>
-              <div class="ranked-routes" id="graph-paths-visual"></div>
+              <div id="drift-status-badge" class="badge-tag badge-tag--success">
+                🟢 Calibrated Envelope
+              </div>
             </div>
 
-            <!-- Assignments -->
-            <div class="card" style="margin-bottom: var(--space-md);">
-              <div class="card__header">
-                <span class="card__title">Diversified Vehicle Allocation</span>
-                <span class="card__icon">🚦</span>
+            <div class="metrics-summary-grid" style="margin-bottom: 10px;">
+              <div class="metric-tile">
+                <div class="metric-tile__label">PSI Metric</div>
+                <div class="metric-tile__val" id="drift-psi" style="font-family: var(--font-mono); color: var(--primary);">0.0000</div>
               </div>
-              <div class="assignments-bar" id="graph-assignments-bar"></div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">KS Statistic</div>
+                <div class="metric-tile__val" id="drift-ks-stat" style="font-family: var(--font-mono);">0.0000</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">KS P-Value</div>
+                <div class="metric-tile__val" id="drift-ks-p" style="font-family: var(--font-mono);">1.0000</div>
+              </div>
+              <div class="metric-tile">
+                <div class="metric-tile__label">Sample / Baseline</div>
+                <div class="metric-tile__val" id="drift-sample-size" style="font-family: var(--font-mono); font-size: 14px;">0 / 500</div>
+              </div>
             </div>
 
-            <!-- Explanation -->
-            <div class="card" style="margin-bottom: var(--space-md);">
-              <div class="card__header">
-                <span class="card__title">Layer 2 Explanation Traceability</span>
-                <span class="card__icon">💡</span>
-              </div>
-              <div class="explanation-grid" id="graph-explanation-grid"></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted); padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+              <div id="drift-recommendation">Distribution stable. Operating within expected calibration envelope.</div>
+              <div id="drift-evaluated-at" style="font-family: var(--font-mono); font-size: 11px;">Evaluated: Just now</div>
             </div>
           </div>
-        </div>
 
-        <!-- SUBPANEL 2: Custom Corridor Matrix (Manual) -->
-        <div class="route-subpanel hidden" id="route-subpanel-manual">
+          <!-- Service Health Grid -->
+          <div class="status-grid" id="health-cards">
+            <div class="status-card" id="card-routing-health">
+              <div class="status-card__header">
+                <span class="status-card__title">Routing Engine</span>
+                <span class="status-dot"></span>
+              </div>
+              <div class="status-card__val" id="health-routing-status">healthy</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="health-routing-detail">Port 8001</div>
+            </div>
+            <div class="status-card">
+              <div class="status-card__header">
+                <span class="status-card__title">Database</span>
+              </div>
+              <div class="status-card__val" id="health-db-status">synthetic_memory</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">TimescaleDB Connection</div>
+            </div>
+            <div class="status-card">
+              <div class="status-card__header">
+                <span class="status-card__title">Redis Store</span>
+              </div>
+              <div class="status-card__val" id="health-redis-status">process_local_fallback</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Rolling Corridor Counters</div>
+            </div>
+            <div class="status-card">
+              <div class="status-card__header">
+                <span class="status-card__title">Audit Service</span>
+                <span class="status-dot"></span>
+              </div>
+              <div class="status-card__val" id="health-audit-status">healthy</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;" id="health-audit-detail">Port 8002</div>
+            </div>
+          </div>
+
+          <!-- Raw Metrics -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+            <div class="card" id="metrics-routing-card">
+              <div class="card__header">
+                <span class="card__title">Routing Engine Prometheus Metrics</span>
+              </div>
+              <div id="metrics-routing-content">
+                <div class="loading-overlay">Loading metrics…</div>
+              </div>
+            </div>
+            <div class="card" id="metrics-audit-card">
+              <div class="card__header">
+                <span class="card__title">Audit Service Prometheus Metrics</span>
+              </div>
+              <div id="metrics-audit-content">
+                <div class="loading-overlay">Loading metrics…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═════════════════════════════════════════════════════════
+             TAB 3: PREDICT (SPEED FORECASTING)
+             ═════════════════════════════════════════════════════════ -->
+        <section class="tab-panel" id="panel-predict" role="tabpanel">
+          <div class="page-header">
+            <div>
+              <h1 class="page-header__title">Spatial-Temporal Speed Forecasting</h1>
+              <p class="page-header__desc">Multi-horizon speed predictions (5m, 15m, 30m) using ST-GNN spatial graph neural networks.</p>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card__header">
-              <span class="card__title">Custom Corridor Matrix</span>
-              <span class="card__icon">🛣️</span>
+              <span class="card__title">Segment Telemetry Parameters</span>
             </div>
-            <form id="route-form">
-              <div class="form-grid" style="margin-bottom:var(--space-lg)">
-                <div class="form-group">
-                  <label for="route-trip-category">Trip Category</label>
-                  <select id="route-trip-category">
-                    <option value="emergency">emergency</option>
-                    <option value="commuter_general" selected>commuter_general</option>
-                    <option value="freight">freight</option>
-                    <option value="transit">transit</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="route-request-count">Request Count</label>
-                  <input type="number" id="route-request-count" value="10" min="1" />
-                </div>
-                <div class="form-group">
-                  <label for="route-cap-fraction">Cap Fraction (0–1)</label>
-                  <input type="number" id="route-cap-fraction" value="0.7" step="0.05" min="0.01" max="1" />
-                </div>
-              </div>
-
-            <!-- Weight Schedule -->
-            <div class="card__header"><span class="card__title">Weight Schedule</span></div>
-            <div class="form-grid" style="margin-bottom:var(--space-lg)">
+            <form id="predict-form" class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
               <div class="form-group">
-                <label for="ws-version">Version</label>
-                <input type="text" id="ws-version" value="2026-08-26-v1" />
+                <label for="predict-segment-id">Segment ID</label>
+                <input type="text" id="predict-segment-id" value="seg_01" required />
               </div>
               <div class="form-group">
-                <label for="ws-date">Effective Date</label>
-                <input type="date" id="ws-date" value="2026-08-26" />
-              </div>
-              <div class="form-group form-group--full">
-                <label for="ws-weights">Weights (JSON)</label>
-                <textarea id="ws-weights" rows="2">{"emergency": 10.0, "commuter_general": 1.0, "freight": 2.0, "transit": 3.0}</textarea>
-              </div>
-            </div>
-
-            <!-- Route Options -->
-            <div class="card__header">
-              <span class="card__title">Route Options</span>
-              <button type="button" class="btn btn--secondary btn--sm" id="btn-add-route">+ Add Route</button>
-            </div>
-            <div class="route-rows" id="route-rows">
-              <div class="route-row" data-route-idx="0">
-                <div class="form-group">
-                  <label>Route ID</label>
-                  <input type="text" class="route-id" value="route_north" required />
-                </div>
-                <div class="form-group">
-                  <label>Travel Time (s)</label>
-                  <input type="number" class="route-tt" value="400" step="1" min="0" />
-                </div>
-                <div class="form-group">
-                  <label>Priority Score</label>
-                  <input type="number" class="route-priority" value="2.0" step="0.1" />
-                </div>
-                <div class="form-group">
-                  <label>Distance (m)</label>
-                  <input type="number" class="route-distance" value="4000" step="1" min="1" />
-                </div>
-                <div class="form-group">
-                  <label>Speed 5m</label>
-                  <input type="number" class="route-speed5m" value="36.0" step="0.1" min="0.1" />
-                </div>
-                <button type="button" class="btn btn--danger btn--sm btn-remove-route">✕</button>
-              </div>
-              <div class="route-row" data-route-idx="1">
-                <div class="form-group">
-                  <label>Route ID</label>
-                  <input type="text" class="route-id" value="route_south" required />
-                </div>
-                <div class="form-group">
-                  <label>Travel Time (s)</label>
-                  <input type="number" class="route-tt" value="500" step="1" min="0" />
-                </div>
-                <div class="form-group">
-                  <label>Priority Score</label>
-                  <input type="number" class="route-priority" value="1.0" step="0.1" />
-                </div>
-                <div class="form-group">
-                  <label>Distance (m)</label>
-                  <input type="number" class="route-distance" placeholder="Optional" step="1" min="1" />
-                </div>
-                <div class="form-group">
-                  <label>Speed 5m</label>
-                  <input type="number" class="route-speed5m" placeholder="Optional" step="0.1" min="0.1" />
-                </div>
-                <button type="button" class="btn btn--danger btn--sm btn-remove-route">✕</button>
-              </div>
-            </div>
-          </form>
-          <div class="btn-group">
-            <button type="submit" form="route-form" class="btn btn--primary" id="btn-route">🚀 Rank Routes</button>
-          </div>
-        </div>
-
-        <div class="result-panel hidden" id="route-results">
-          <!-- Ranked routes -->
-          <div class="card" style="margin-bottom:var(--space-md)">
-            <div class="card__header">
-              <span class="card__title">Ranked Routes</span>
-              <span class="card__icon">🏆</span>
-            </div>
-            <div class="ranked-routes" id="route-ranked-visual"></div>
-          </div>
-
-          <!-- Assignments -->
-          <div class="card" style="margin-bottom:var(--space-md)">
-            <div class="card__header">
-              <span class="card__title">Traffic Assignments</span>
-              <span class="card__icon">🚦</span>
-            </div>
-            <div class="assignments-bar" id="route-assignments-bar"></div>
-          </div>
-
-          <!-- Explanation -->
-          <div class="card" style="margin-bottom:var(--space-md)">
-            <div class="card__header">
-              <span class="card__title">Explanation Payload</span>
-              <span class="card__icon">💡</span>
-            </div>
-            <div class="explanation-grid" id="route-explanation-grid"></div>
-          </div>
-
-          <div class="card">
-            <details>
-              <summary style="cursor:pointer;color:var(--text-secondary);font-size:13px;">View Raw JSON</summary>
-              <pre class="result-json" id="route-raw-json"></pre>
-            </details>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── Audit Panel ── -->
-      <section class="tab-panel" id="panel-audit">
-        <div class="section-header">
-          <h2>Policy Audit</h2>
-          <p>Verify route decisions against published weight schedules independently.</p>
-        </div>
-
-        <!-- Live Redis Stream Activity Banner -->
-        <div class="card" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid rgba(0, 212, 255, 0.25); background: rgba(0, 212, 255, 0.04); border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span style="font-size: 18px;">⚡</span>
-              <div>
-                <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">Asynchronous Audit Event Stream Active</div>
-                <div style="font-size: 11px; color: #94a3b8;">High-throughput non-blocking routing outcome stream via Redis Streams ({catrs:audit}:stream)</div>
-              </div>
-            </div>
-            <div style="display: flex; gap: 16px; align-items: center;">
-              <div>
-                <span style="font-size: 10px; color: #888; text-transform: uppercase;">Published:</span>
-                <span id="audit-stream-published" style="font-size: 13px; font-weight: 700; color: #4ade80; font-family: var(--font-mono);">0</span>
-              </div>
-              <div>
-                <span style="font-size: 10px; color: #888; text-transform: uppercase;">Buffered:</span>
-                <span id="audit-stream-buffered" style="font-size: 13px; font-weight: 700; color: #facc15; font-family: var(--font-mono);">0</span>
-              </div>
-              <button type="button" class="btn btn--secondary btn--sm" id="btn-drain-stream" style="padding: 4px 10px; font-size: 11px;">Drain & Verify</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sub-tabs">
-          <button class="sub-tab active" data-subtab="audit-single">Single Outcome</button>
-          <button class="sub-tab" data-subtab="audit-batch">Batch Audit</button>
-          <button class="sub-tab" data-subtab="audit-summary">Batch Summary</button>
-        </div>
-
-        <!-- ── Single Audit ── -->
-        <div class="sub-panel active" id="subpanel-audit-single">
-          <div class="card">
-            <div class="card__header">
-              <span class="card__title">Single Outcome Audit</span>
-              <span class="card__icon">🔍</span>
-            </div>
-            <form id="audit-single-form" class="form-grid">
-              <div class="form-group">
-                <label for="as-trip-cat">Trip Category</label>
-                <input type="text" id="as-trip-cat" value="emergency" required />
+                <label for="predict-current-speed">Current Speed (km/h)</label>
+                <input type="number" id="predict-current-speed" value="45.0" step="0.1" min="0.1" required />
               </div>
               <div class="form-group">
-                <label for="as-weight-applied">Weight Applied</label>
-                <input type="number" id="as-weight-applied" value="10.0" step="0.1" required />
+                <label for="predict-current-volume">Current Volume (veh/hr)</label>
+                <input type="number" id="predict-current-volume" value="80" min="0" required />
               </div>
               <div class="form-group">
-                <label for="as-ws-version">Schedule Version</label>
-                <input type="text" id="as-ws-version" value="2026-08-26-v1" required />
+                <label for="predict-baseline-speed">Historical Baseline Speed</label>
+                <input type="number" id="predict-baseline-speed" value="55.0" step="0.1" min="0.1" required />
               </div>
               <div class="form-group">
-                <label for="as-route-id">Route ID (optional)</label>
-                <input type="text" id="as-route-id" value="route_north" />
+                <label for="predict-weather">Weather Severity (0–1)</label>
+                <input type="number" id="predict-weather" value="0.2" step="0.01" min="0" max="1" />
               </div>
               <div class="form-group">
-                <label for="as-outcome-at">Outcome At (optional)</label>
-                <input type="datetime-local" id="as-outcome-at" />
-              </div>
-              <div class="form-group form-group--full">
-                <label>Weight Schedule</label>
+                <label for="predict-event-prox">Event Proximity (0–1)</label>
+                <input type="number" id="predict-event-prox" value="0.0" step="0.01" min="0" max="1" />
               </div>
               <div class="form-group">
-                <label for="as-sch-version">Schedule Version</label>
-                <input type="text" id="as-sch-version" value="2026-08-26-v1" />
+                <label for="predict-upstream">Upstream Congestion (0–1)</label>
+                <input type="number" id="predict-upstream" value="0.1" step="0.01" min="0" max="1" />
               </div>
               <div class="form-group">
-                <label for="as-sch-date">Effective Date</label>
-                <input type="date" id="as-sch-date" value="2026-08-26" />
+                <label for="predict-hour">Time of Day (0–23)</label>
+                <input type="number" id="predict-hour" value="8" min="0" max="23" />
               </div>
-              <div class="form-group form-group--full">
-                <label for="as-sch-weights">Weights (JSON)</label>
-                <textarea id="as-sch-weights" rows="2">{"emergency": 10.0}</textarea>
+              <div class="form-group">
+                <label for="predict-dow">Day of Week (0–6)</label>
+                <input type="number" id="predict-dow" value="1" min="0" max="6" />
+              </div>
+              <div class="form-group" style="display:flex; flex-direction:row; align-items:center; gap:8px; padding-top: 24px;">
+                <input type="checkbox" id="predict-incident" />
+                <label for="predict-incident" style="margin: 0; cursor: pointer;">Active Incident Detected</label>
               </div>
             </form>
-            <div class="btn-group">
-              <button type="submit" form="audit-single-form" class="btn btn--primary" id="btn-audit-single">🔍 Audit Outcome</button>
+            <div class="btn-group" style="margin-top: 16px;">
+              <button type="submit" form="predict-form" class="btn btn--primary" id="btn-predict">Compute Speed Forecast</button>
             </div>
           </div>
-          <div class="result-panel hidden" id="audit-single-results">
-            <div class="card">
-              <div class="card__header">
-                <span class="card__title">Audit Result</span>
-                <span id="audit-single-badge"></span>
-              </div>
-              <pre class="result-json" id="audit-single-raw"></pre>
-            </div>
-          </div>
-        </div>
 
-        <!-- ── Batch Audit ── -->
-        <div class="sub-panel" id="subpanel-audit-batch">
-          <div class="card">
-            <div class="card__header">
-              <span class="card__title">Batch Outcome Audit</span>
-              <span class="card__icon">📦</span>
-            </div>
-            <form id="audit-batch-form">
-              <div class="form-group form-group--full">
-                <label for="ab-payload">Full Request Payload (JSON)</label>
-                <textarea id="ab-payload" rows="14">{
-  "outcomes": [
-    {
-      "trip_category": "emergency",
-      "weight_applied": 10.0,
-      "weight_schedule_version": "2026-08-26-v1"
-    }
-  ],
-  "schedules": {
-    "2026-08-26-v1": {
-      "version": "2026-08-26-v1",
-      "effective_date": "2026-08-26",
-      "weights": { "emergency": 10.0 }
-    }
-  }
-}</textarea>
-              </div>
-            </form>
-            <div class="btn-group">
-              <button type="submit" form="audit-batch-form" class="btn btn--primary" id="btn-audit-batch">📦 Run Batch Audit</button>
-            </div>
-          </div>
-          <div class="result-panel hidden" id="audit-batch-results">
+          <div class="result-panel hidden" id="predict-results" style="margin-top: 20px;">
             <div class="card">
               <div class="card__header">
-                <span class="card__title">Batch Results</span>
-                <span id="audit-batch-badge"></span>
+                <span class="card__title">Forecast Horizons</span>
               </div>
-              <div class="audit-summary-grid" id="audit-batch-summary-grid"></div>
-              <details style="margin-top:var(--space-lg)">
-                <summary style="cursor:pointer;color:var(--text-secondary);font-size:13px;">View Raw JSON</summary>
-                <pre class="result-json" id="audit-batch-raw"></pre>
+              <div class="prediction-results" id="predict-visual"></div>
+              <details style="margin-top: 16px;">
+                <summary style="cursor: pointer; color: var(--text-muted); font-size: 12px;">View Raw JSON</summary>
+                <pre class="result-json" id="predict-raw-json" style="margin-top: 8px; background: var(--bg-subtle); padding: 10px; border-radius: var(--radius-md); font-size: 11px;"></pre>
               </details>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- ── Batch Summary ── -->
-        <div class="sub-panel" id="subpanel-audit-summary">
-          <div class="card">
-            <div class="card__header">
-              <span class="card__title">Batch Audit Summary</span>
-              <span class="card__icon">📊</span>
+        <!-- ═════════════════════════════════════════════════════════
+             TAB 4: AUDIT (POLICY VERIFICATION & AUDIT STREAMS)
+             ═════════════════════════════════════════════════════════ -->
+        <section class="tab-panel" id="panel-audit" role="tabpanel">
+          <div class="page-header">
+            <div>
+              <h1 class="page-header__title">Policy Audit & Outcome Verification</h1>
+              <p class="page-header__desc">Cryptographically verifiable and policy-auditable routing decisions against published weight schedules.</p>
             </div>
-            <form id="audit-summary-form">
-              <div class="form-group form-group--full">
-                <label for="asum-payload">Full Request Payload (JSON)</label>
-                <textarea id="asum-payload" rows="14">{
+          </div>
+
+          <!-- Real-Time Async Audit Stream Banner -->
+          <div class="card" style="margin-bottom: 20px; background-color: var(--primary-light); border-color: var(--primary-border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 18px;">⚡</span>
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: var(--primary);">Asynchronous Audit Event Stream Active</div>
+                  <div style="font-size: 11px; color: var(--text-secondary);">Non-blocking background publication to Redis Stream ({catrs:audit}:stream).</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 14px; align-items: center;">
+                <div class="status-pill" style="background: #ffffff;">
+                  <span style="font-size: 11px; color: var(--text-muted);">Published:</span>
+                  <strong id="audit-stream-published" style="color: var(--traffic-green); font-family: var(--font-mono);">0</strong>
+                </div>
+                <div class="status-pill" style="background: #ffffff;">
+                  <span style="font-size: 11px; color: var(--text-muted);">Buffered:</span>
+                  <strong id="audit-stream-buffered" style="color: var(--traffic-amber); font-family: var(--font-mono);">0</strong>
+                </div>
+                <button type="button" class="btn btn--primary btn--sm" id="btn-drain-stream">Drain & Verify</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sub-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button class="sub-tab active" data-subtab="audit-single">Single Outcome</button>
+            <button class="sub-tab" data-subtab="audit-batch">Batch Audit</button>
+            <button class="sub-tab" data-subtab="audit-summary">Batch Summary</button>
+          </div>
+
+          <!-- Single Outcome Form -->
+          <div class="sub-panel active" id="subpanel-audit-single">
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Verify Single Decision</span>
+              </div>
+              <form id="audit-single-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px;">
+                <div class="form-group">
+                  <label for="as-trip-cat">Trip Category</label>
+                  <input type="text" id="as-trip-cat" value="emergency" required />
+                </div>
+                <div class="form-group">
+                  <label for="as-weight-applied">Weight Applied</label>
+                  <input type="number" id="as-weight-applied" value="10.0" step="0.1" required />
+                </div>
+                <div class="form-group">
+                  <label for="as-ws-version">Schedule Version</label>
+                  <input type="text" id="as-ws-version" value="2026-08-26-v1" required />
+                </div>
+                <div class="form-group">
+                  <label for="as-route-id">Route ID</label>
+                  <input type="text" id="as-route-id" value="route_north" />
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label for="as-sch-weights">Active Weight Schedule (JSON)</label>
+                  <textarea id="as-sch-weights" rows="2">{"emergency": 10.0}</textarea>
+                </div>
+              </form>
+              <div class="btn-group" style="margin-top: 14px;">
+                <button type="submit" form="audit-single-form" class="btn btn--primary" id="btn-audit-single">Run Audit Verification</button>
+              </div>
+            </div>
+
+            <div class="result-panel hidden" id="audit-single-results" style="margin-top: 16px;">
+              <div class="card">
+                <div class="card__header">
+                  <span class="card__title">Verification Outcome</span>
+                  <span id="audit-single-badge"></span>
+                </div>
+                <pre class="result-json" id="audit-single-raw" style="background: var(--bg-subtle); padding: 12px; border-radius: var(--radius-md); font-size: 11px;"></pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Batch Audit Form -->
+          <div class="sub-panel" id="subpanel-audit-batch">
+            <div class="card">
+              <div class="card__header">
+                <span class="card__title">Batch Outcome Verification</span>
+              </div>
+              <form id="audit-batch-form">
+                <div class="form-group">
+                  <label for="ab-payload">Request Payload (JSON)</label>
+                  <textarea id="ab-payload" rows="10">{
   "outcomes": [
     {
       "trip_category": "emergency",
@@ -853,51 +851,99 @@
     }
   }
 }</textarea>
+                </div>
+              </form>
+              <div class="btn-group" style="margin-top: 12px;">
+                <button type="submit" form="audit-batch-form" class="btn btn--primary" id="btn-audit-batch">Run Batch Audit</button>
               </div>
-            </form>
-            <div class="btn-group">
-              <button type="submit" form="audit-summary-form" class="btn btn--primary" id="btn-audit-summary">📊 Get Summary</button>
+            </div>
+
+            <div class="result-panel hidden" id="audit-batch-results" style="margin-top: 16px;">
+              <div class="card">
+                <div class="card__header">
+                  <span class="card__title">Batch Verification Results</span>
+                  <span id="audit-batch-badge"></span>
+                </div>
+                <div class="metrics-summary-grid" id="audit-batch-summary-grid"></div>
+                <details style="margin-top: 12px;">
+                  <summary style="cursor: pointer; color: var(--text-muted); font-size: 12px;">View Raw JSON</summary>
+                  <pre class="result-json" id="audit-batch-raw" style="margin-top: 8px; background: var(--bg-subtle); padding: 10px; border-radius: var(--radius-md); font-size: 11px;"></pre>
+                </details>
+              </div>
             </div>
           </div>
-          <div class="result-panel hidden" id="audit-summary-results">
+
+          <!-- Batch Summary Subpanel -->
+          <div class="sub-panel" id="subpanel-audit-summary">
             <div class="card">
               <div class="card__header">
-                <span class="card__title">Summary</span>
+                <span class="card__title">Audit Batch Summary</span>
               </div>
-              <div class="audit-summary-grid" id="audit-summary-grid"></div>
+              <form id="audit-summary-form">
+                <div class="form-group">
+                  <label for="asum-payload">Payload (JSON)</label>
+                  <textarea id="asum-payload" rows="10">{
+  "outcomes": [
+    {
+      "trip_category": "emergency",
+      "weight_applied": 10.0,
+      "weight_schedule_version": "2026-08-26-v1"
+    }
+  ],
+  "schedules": {
+    "2026-08-26-v1": {
+      "version": "2026-08-26-v1",
+      "effective_date": "2026-08-26",
+      "weights": { "emergency": 10.0 }
+    }
+  }
+}</textarea>
+                </div>
+              </form>
+              <div class="btn-group" style="margin-top: 12px;">
+                <button type="submit" form="audit-summary-form" class="btn btn--primary" id="btn-audit-summary">Generate Summary</button>
+              </div>
+            </div>
+
+            <div class="result-panel hidden" id="audit-summary-results" style="margin-top: 16px;">
+              <div class="card">
+                <div class="card__header">
+                  <span class="card__title">Summary Outcome</span>
+                </div>
+                <div class="metrics-summary-grid" id="audit-summary-grid"></div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-    </main>
+      </main>
 
-    <!-- ═══ Settings Modal ═══ -->
+    </div>
+
+    <!-- ═══ Service Configuration Modal ═══ -->
     <div class="modal-overlay" id="settings-modal">
       <div class="modal">
-        <div class="modal__title">⚙ Service Settings</div>
-        <div class="form-grid">
-          <div class="form-group form-group--full">
-            <label for="setting-routing-url">Routing Engine Base URL</label>
-            <input type="url" id="setting-routing-url" value="http://localhost:8001" />
-          </div>
-          <div class="form-group form-group--full">
-            <label for="setting-audit-url">Audit Service Base URL</label>
-            <input type="url" id="setting-audit-url" value="http://localhost:8002" />
-          </div>
-          <div class="checkbox-row">
-            <input type="checkbox" id="setting-use-proxy" checked />
-            <label for="setting-use-proxy">Use Vite dev proxy (recommended in dev)</label>
-          </div>
+        <div class="modal__title">Service Configuration</div>
+        <div class="form-group">
+          <label for="setting-routing-url">Routing Engine Base URL</label>
+          <input type="url" id="setting-routing-url" value="http://localhost:8001" />
+        </div>
+        <div class="form-group">
+          <label for="setting-audit-url">Audit Service Base URL</label>
+          <input type="url" id="setting-audit-url" value="http://localhost:8002" />
+        </div>
+        <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
+          <input type="checkbox" id="setting-use-proxy" checked />
+          <label for="setting-use-proxy" style="margin: 0; cursor: pointer;">Use Vite Dev Server Proxy</label>
         </div>
         <div class="btn-group">
           <button class="btn btn--secondary" id="btn-settings-cancel">Cancel</button>
-          <button class="btn btn--primary" id="btn-settings-save">Save</button>
+          <button class="btn btn--primary" id="btn-settings-save">Save Settings</button>
         </div>
       </div>
     </div>
 
-    <!-- ═══ Toast Container ═══ -->
+    <!-- ═══ Floating Toast Notifications ═══ -->
     <div class="toast-container" id="toast-container"></div>
 
   </div>

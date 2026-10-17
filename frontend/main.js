@@ -68,19 +68,49 @@ function showToast(message, type = 'info') {
   setTimeout(() => toast.remove(), 4000);
 }
 
-// ── Tab Navigation ─────────────────────────────────────────────
-const tabs = document.querySelectorAll('.nav__tab');
+// ── Tab & Sidebar Navigation ────────────────────────────────────
+const navLinks = document.querySelectorAll('.sidebar__link[data-tab], .nav__tab[data-tab]');
 const panels = document.querySelectorAll('.tab-panel');
+const viewTitleEl = document.getElementById('current-view-title');
 
-tabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    const target = tab.dataset.tab;
-    tabs.forEach(t => t.classList.remove('active'));
+const TAB_TITLES = {
+  route: 'Route Planning & Navigation',
+  dashboard: 'System Overview & ML Telemetry',
+  predict: 'Speed Forecasting',
+  audit: 'Policy Audit & Verification',
+};
+
+navLinks.forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = link.dataset.tab;
+    navLinks.forEach(l => l.classList.remove('active'));
     panels.forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(`panel-${target}`).classList.add('active');
+
+    document.querySelectorAll(`[data-tab="${target}"]`).forEach(el => el.classList.add('active'));
+    const panelEl = document.getElementById(`panel-${target}`);
+    if (panelEl) panelEl.classList.add('active');
+
+    if (viewTitleEl && TAB_TITLES[target]) {
+      viewTitleEl.textContent = TAB_TITLES[target];
+    }
   });
 });
+
+// Sidebar Collapse / Expand Toggle
+const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+const appSidebar = document.getElementById('app-sidebar');
+const sidebarToggleIcon = document.getElementById('sidebar-toggle-icon');
+const sidebarToggleText = document.getElementById('sidebar-toggle-text');
+
+if (btnToggleSidebar && appSidebar) {
+  btnToggleSidebar.addEventListener('click', () => {
+    appSidebar.classList.toggle('collapsed');
+    const isCollapsed = appSidebar.classList.contains('collapsed');
+    if (sidebarToggleIcon) sidebarToggleIcon.textContent = isCollapsed ? '▶' : '◀';
+    if (sidebarToggleText) sidebarToggleText.textContent = isCollapsed ? 'Expand' : 'Collapse';
+  });
+}
 
 // ── Sub-tab Navigation (Audit) ─────────────────────────────────
 const subTabs = document.querySelectorAll('.sub-tab');
@@ -471,6 +501,41 @@ const planDestEl = document.getElementById('plan-destination');
 if (planOriginEl) planOriginEl.addEventListener('change', updateMapNodeHighlights);
 if (planDestEl) planDestEl.addEventListener('change', updateMapNodeHighlights);
 
+// Swap Locations Button (⇅)
+const btnSwapNodes = document.getElementById('btn-swap-nodes');
+if (btnSwapNodes) {
+  btnSwapNodes.addEventListener('click', () => {
+    if (planOriginEl && planDestEl) {
+      const origVal = planOriginEl.value;
+      const destVal = planDestEl.value;
+      planOriginEl.value = destVal;
+      planDestEl.value = origVal;
+      updateMapNodeHighlights();
+      showToast(`Swapped locations: ${planOriginEl.value} ⇄ ${planDestEl.value}`, 'info');
+    }
+  });
+}
+
+// Route Planner Panel Collapse & Expand
+const btnToggleRoutePanel = document.getElementById('btn-toggle-route-panel');
+const btnExpandMapToggle = document.getElementById('btn-expand-map-toggle');
+const routeHeroContainer = document.getElementById('route-hero-container');
+
+if (btnToggleRoutePanel && routeHeroContainer) {
+  btnToggleRoutePanel.addEventListener('click', () => {
+    routeHeroContainer.classList.add('panel-collapsed');
+    if (btnExpandMapToggle) btnExpandMapToggle.style.display = 'inline-flex';
+    showToast('Route panel minimized. Expanded map view.', 'info');
+  });
+}
+
+if (btnExpandMapToggle && routeHeroContainer) {
+  btnExpandMapToggle.addEventListener('click', () => {
+    routeHeroContainer.classList.remove('panel-collapsed');
+    btnExpandMapToggle.style.display = 'none';
+  });
+}
+
 function drawPathsOnMap(paths) {
   const overlayGroup = document.getElementById('map-path-overlays');
   if (!overlayGroup) return;
@@ -516,31 +581,68 @@ function renderGraphPlanResults(data) {
     const assigned = assignments[r.route_id] || 0;
     const pct = total > 0 ? Math.round((assigned / total) * 100) : 0;
     const isWinner = idx === 0;
-    const badgeColor = isWinner ? '#00ff88' : idx === 1 ? '#00d4ff' : '#a855f7';
+
+    // Format estimated travel time prominently (e.g. 14.2 min or 852s)
+    let formattedTime = `${fmt(r.travel_time_s)}s`;
+    if (r.travel_time_s >= 60) {
+      const mins = Math.floor(r.travel_time_s / 60);
+      const secs = Math.round(r.travel_time_s % 60);
+      formattedTime = `${mins} min ${secs > 0 ? `${secs}s` : ''}`;
+    }
+
+    // Calculate potential time saved against Rank #2
+    let timeSavedBadge = '';
+    if (isWinner && ranked.length > 1) {
+      const diffSec = ranked[1].travel_time_s - r.travel_time_s;
+      if (diffSec > 0) {
+        const diffMins = (diffSec / 60).toFixed(1);
+        timeSavedBadge = `<span class="badge-tag badge-tag--success" style="font-size:11px;">★ Saves ${diffMins} min</span>`;
+      }
+    }
+
+    // Congestion severity label
+    let congestionSeverity = '🟢 Free Flow';
+    if (r.predicted_speed_5m) {
+      if (r.predicted_speed_5m < 25) {
+        congestionSeverity = '🔴 Heavy Delay';
+      } else if (r.predicted_speed_5m < 45) {
+        congestionSeverity = '🟡 Moderate Traffic';
+      }
+    }
+
+    const distKm = r.distance_m ? `${(r.distance_m / 1000).toFixed(1)} km` : '—';
 
     html += `
-      <div class="ranked-card ${isWinner ? 'ranked-card--winner' : ''}" data-rank-idx="${idx}" style="border-left: 4px solid ${badgeColor};">
-        <div class="ranked-card__rank" style="color:${badgeColor}">Rank #${idx + 1} ${isWinner ? '★ Primary Selected' : 'Alternative Corridor'}</div>
-        <div class="ranked-card__id">${escapeHtml(r.route_id)}</div>
-        <div class="ranked-card__meta">
-          <div>
-            <span class="ranked-card__meta-label">Est. Travel Time</span>
-            <span class="ranked-card__meta-value">${fmt(r.travel_time_s)} s</span>
+      <div class="ranked-card ${isWinner ? 'ranked-card--winner' : ''}" data-rank-idx="${idx}">
+        <div class="ranked-card__header">
+          <span class="ranked-card__rank-badge" style="color: ${isWinner ? 'var(--primary)' : 'var(--text-muted)'};">
+            ${isWinner ? '★ Recommended Route' : `Alternative Route #${idx + 1}`}
+          </span>
+          ${timeSavedBadge}
+        </div>
+        <div class="ranked-card__primary-metric">
+          <span class="ranked-card__time-value">${formattedTime}</span>
+          <span class="ranked-card__time-unit">(${fmt(r.travel_time_s)}s total)</span>
+        </div>
+        <div class="ranked-card__secondary-metrics">
+          <div class="ranked-card__metric-item">
+            <span class="ranked-card__metric-label">Distance</span>
+            <span class="ranked-card__metric-val">${distKm}</span>
           </div>
-          <div>
-            <span class="ranked-card__meta-label">Path Distance</span>
-            <span class="ranked-card__meta-value">${fmt(r.distance_m)} m</span>
+          <div class="ranked-card__metric-item">
+            <span class="ranked-card__metric-label">Conditions</span>
+            <span class="ranked-card__metric-val" style="font-size:12px;">${congestionSeverity}</span>
           </div>
-          <div>
-            <span class="ranked-card__meta-label">Priority Cost</span>
-            <span class="ranked-card__meta-value">${fmt(r.effective_cost || r.priority_score)}</span>
+          <div class="ranked-card__metric-item">
+            <span class="ranked-card__metric-label">Traffic Allocated</span>
+            <span class="ranked-card__metric-val" style="color: ${isWinner ? 'var(--primary)' : 'var(--text-secondary)'};">${assigned} trips (${pct}%)</span>
           </div>
-          <div>
-            <span class="ranked-card__meta-label">Allocated Traffic</span>
-            <span class="ranked-card__meta-value" style="color:${badgeColor}">${assigned} trips (${pct}%)</span>
+          <div class="ranked-card__metric-item">
+            <span class="ranked-card__metric-label">Effective Cost</span>
+            <span class="ranked-card__metric-val">${fmt(r.effective_cost || r.priority_score)}</span>
           </div>
         </div>
-        ${r.nodes ? `<div style="margin-top:10px; font-size:12px; font-family:var(--font-mono); color:#94a3b8; background:rgba(0,0,0,0.25); padding:6px 10px; border-radius:4px;">Node Path: ${r.nodes.join(' → ')}</div>` : ''}
+        ${r.nodes ? `<div class="ranked-card__path-nodes" title="${r.nodes.join(' → ')}">Path: ${r.nodes.join(' → ')}</div>` : ''}
       </div>
     `;
   });
@@ -578,7 +680,7 @@ function renderGraphPlanResults(data) {
   const barContainer = document.getElementById('graph-assignments-bar');
   if (barContainer) {
     let barHtml = '';
-    const colors = ['#00ff88', '#00d4ff', '#a855f7', '#ffb800'];
+    const colors = ['#2563eb', '#0284c7', '#7c3aed', '#f59e0b'];
     let colorIdx = 0;
     for (const [rid, count] of Object.entries(assignments)) {
       const pct = total > 0 ? (count / total) * 100 : 0;
@@ -592,7 +694,7 @@ function renderGraphPlanResults(data) {
         colorIdx++;
       }
     }
-    barContainer.innerHTML = barHtml || '<div style="color:var(--text-muted);font-size:13px;">No assignments.</div>';
+    barContainer.innerHTML = barHtml || '<div style="color:var(--text-muted);font-size:12px;padding:4px 8px;">No assignments.</div>';
   }
 
   // Render explanation
@@ -1192,12 +1294,18 @@ function renderAuditSummaryGrid(containerId, data) {
 
 const settingsModal = document.getElementById('settings-modal');
 
-document.getElementById('btn-settings').addEventListener('click', () => {
+const openSettingsHandler = () => {
   document.getElementById('setting-routing-url').value = CONFIG.routingBaseUrl;
   document.getElementById('setting-audit-url').value = CONFIG.auditBaseUrl;
   document.getElementById('setting-use-proxy').checked = CONFIG.useProxy;
   settingsModal.classList.add('open');
-});
+};
+
+const btnSettings = document.getElementById('btn-settings');
+if (btnSettings) btnSettings.addEventListener('click', openSettingsHandler);
+
+const btnSidebarSettings = document.getElementById('btn-sidebar-settings');
+if (btnSidebarSettings) btnSidebarSettings.addEventListener('click', openSettingsHandler);
 
 document.getElementById('btn-settings-cancel').addEventListener('click', () => {
   settingsModal.classList.remove('open');
