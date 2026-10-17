@@ -51,6 +51,9 @@ def test_sensor_graph_alignment():
 
 def test_metr_la_loader():
     """Verify MetrLaDataset instantiation, metadata, and graph loading."""
+    metr_pkl = DATA_DIR / "raw" / "adj_mx_METR-LA.pkl"
+    if not metr_pkl.exists():
+        pytest.skip("METR-LA raw dataset files not present in data/raw/")
     ds = get_dataset(DatasetMode.METR_LA, data_dir=DATA_DIR)
     assert isinstance(ds, MetrLaDataset)
     assert ds.name == "METR_LA"
@@ -64,6 +67,9 @@ def test_metr_la_loader():
 
 def test_pems_bay_loader():
     """Verify PemsBayDataset instantiation, metadata, and graph loading."""
+    pems_pkl = DATA_DIR / "raw" / "adj_mx_PEMS-BAY.pkl"
+    if not pems_pkl.exists():
+        pytest.skip("PEMS-BAY raw dataset files not present in data/raw/")
     ds = get_dataset(DatasetMode.PEMS_BAY, data_dir=DATA_DIR)
     assert isinstance(ds, PemsBayDataset)
     assert ds.name == "PEMS_BAY"

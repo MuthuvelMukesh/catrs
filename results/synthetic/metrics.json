@@ -1,158 +1,230 @@
 {
   "Historical_Mean": {
     "5m": {
-      "mae": 51.305,
-      "rmse": 52.267,
-      "mape": 100.37,
-      "r2": -21.1002
+      "mae": 0.692,
+      "rmse": 2.801,
+      "mape": 1.63,
+      "r2": 0.9362
     },
     "15m": {
-      "mae": 51.158,
-      "rmse": 52.16,
-      "mape": 100.32,
-      "r2": -20.5852
+      "mae": 1.541,
+      "rmse": 4.83,
+      "mape": 3.78,
+      "r2": 0.8139
     },
     "30m": {
-      "mae": 50.939,
-      "rmse": 51.999,
-      "mape": 100.26,
-      "r2": -19.861
+      "mae": 2.883,
+      "rmse": 6.83,
+      "mape": 7.15,
+      "r2": 0.6379
     },
     "overall": {
-      "mae": 51.134,
-      "rmse": 52.143,
-      "mape": 100.31,
-      "r2": -20.5017
+      "mae": 1.705,
+      "rmse": 5.094,
+      "mape": 4.19,
+      "r2": 0.7937
+    },
+    "latency": {
+      "latency_p50_ms": 0.04,
+      "latency_p95_ms": 0.06,
+      "latency_mean_ms": 0.05
+    },
+    "node_stats": {
+      "node_mae_mean": 1.705,
+      "node_mae_min": 1.627,
+      "node_mae_max": 1.768,
+      "node_mae_std": 0.043
     }
   },
   "Persistence": {
     "5m": {
-      "mae": 51.305,
-      "rmse": 52.267,
-      "mape": 100.37,
-      "r2": -21.1
+      "mae": 0.532,
+      "rmse": 2.781,
+      "mape": 1.29,
+      "r2": 0.9371
     },
     "15m": {
-      "mae": 51.158,
-      "rmse": 52.16,
-      "mape": 100.32,
-      "r2": -20.585
+      "mae": 1.556,
+      "rmse": 4.822,
+      "mape": 3.8,
+      "r2": 0.8145
     },
     "30m": {
-      "mae": 50.938,
-      "rmse": 51.999,
-      "mape": 100.26,
-      "r2": -19.8607
+      "mae": 2.989,
+      "rmse": 6.828,
+      "mape": 7.36,
+      "r2": 0.6381
     },
     "overall": {
-      "mae": 51.134,
-      "rmse": 52.142,
-      "mape": 100.31,
-      "r2": -20.5015
+      "mae": 1.692,
+      "rmse": 5.086,
+      "mape": 4.15,
+      "r2": 0.7943
+    },
+    "latency": {
+      "latency_p50_ms": 0.04,
+      "latency_p95_ms": 0.05,
+      "latency_mean_ms": 0.04
+    },
+    "node_stats": {
+      "node_mae_mean": 1.692,
+      "node_mae_min": 1.639,
+      "node_mae_max": 1.738,
+      "node_mae_std": 0.035
     }
   },
   "Linear_Regression": {
     "5m": {
-      "mae": 0.759,
-      "rmse": 2.765,
-      "mape": 1.83,
-      "r2": 0.9382
+      "mae": 0.79,
+      "rmse": 2.766,
+      "mape": 1.92,
+      "r2": 0.9378
     },
     "15m": {
-      "mae": 2.112,
-      "rmse": 4.72,
-      "mape": 5.13,
-      "r2": 0.8232
+      "mae": 2.196,
+      "rmse": 4.733,
+      "mape": 5.37,
+      "r2": 0.8213
     },
     "30m": {
-      "mae": 3.78,
-      "rmse": 6.53,
-      "mape": 9.27,
-      "r2": 0.671
+      "mae": 3.913,
+      "rmse": 6.569,
+      "mape": 9.65,
+      "r2": 0.6651
     },
     "overall": {
-      "mae": 2.217,
-      "rmse": 4.918,
-      "mape": 5.41,
-      "r2": 0.8087
+      "mae": 2.3,
+      "rmse": 4.94,
+      "mape": 5.65,
+      "r2": 0.8059
+    },
+    "latency": {
+      "latency_p50_ms": 0.12,
+      "latency_p95_ms": 0.53,
+      "latency_mean_ms": 0.19
+    },
+    "node_stats": {
+      "node_mae_mean": 2.3,
+      "node_mae_min": 2.265,
+      "node_mae_max": 2.328,
+      "node_mae_std": 0.021
     }
   },
   "GRU": {
     "5m": {
-      "mae": 44.905,
-      "rmse": 46.261,
-      "mape": 86.46,
-      "r2": -16.3128
+      "mae": 7.77,
+      "rmse": 10.471,
+      "mape": 19.11,
+      "r2": 0.1086
     },
     "15m": {
-      "mae": 46.104,
-      "rmse": 47.451,
-      "mape": 89.2,
-      "r2": -16.8637
+      "mae": 7.817,
+      "rmse": 10.643,
+      "mape": 19.7,
+      "r2": 0.0964
     },
     "30m": {
-      "mae": 45.465,
-      "rmse": 46.869,
-      "mape": 88.26,
-      "r2": -15.9474
+      "mae": 8.19,
+      "rmse": 10.79,
+      "mape": 19.96,
+      "r2": 0.0963
     },
     "overall": {
-      "mae": 45.491,
-      "rmse": 46.863,
-      "mape": 87.97,
-      "r2": -16.3679
+      "mae": 7.926,
+      "rmse": 10.636,
+      "mape": 19.59,
+      "r2": 0.1005
+    },
+    "latency": {
+      "latency_p50_ms": 18.0,
+      "latency_p95_ms": 26.2,
+      "latency_mean_ms": 19.08
+    },
+    "node_stats": {
+      "node_mae_mean": 7.926,
+      "node_mae_min": 7.874,
+      "node_mae_max": 7.983,
+      "node_mae_std": 0.038
     }
   },
   "GCN": {
     "5m": {
-      "mae": 16.571,
-      "rmse": 20.494,
-      "mape": 35.93,
-      "r2": -2.3977
+      "mae": 5.43,
+      "rmse": 6.134,
+      "mape": 10.88,
+      "r2": 0.6941
     },
     "15m": {
-      "mae": 17.642,
-      "rmse": 22.6,
-      "mape": 42.52,
-      "r2": -3.0523
+      "mae": 35.9,
+      "rmse": 37.306,
+      "mape": 75.78,
+      "r2": -10.1014
     },
     "30m": {
-      "mae": 16.41,
-      "rmse": 20.37,
-      "mape": 37.81,
-      "r2": -2.2011
+      "mae": 12.42,
+      "rmse": 13.456,
+      "mape": 24.6,
+      "r2": -0.4055
     },
     "overall": {
-      "mae": 16.874,
-      "rmse": 21.179,
-      "mape": 38.75,
-      "r2": -2.5474
+      "mae": 17.917,
+      "rmse": 23.169,
+      "mape": 37.08,
+      "r2": -3.2687
+    },
+    "latency": {
+      "latency_p50_ms": 0.75,
+      "latency_p95_ms": 0.97,
+      "latency_mean_ms": 0.73
+    },
+    "node_stats": {
+      "node_mae_mean": 17.917,
+      "node_mae_min": 11.149,
+      "node_mae_max": 20.587,
+      "node_mae_std": 2.77
     }
   },
   "ST_GNN": {
     "5m": {
-      "mae": 49.029,
-      "rmse": 50.274,
-      "mape": 94.99,
-      "r2": -19.4464
+      "mae": 8.428,
+      "rmse": 11.174,
+      "mape": 20.55,
+      "r2": -0.0151
     },
     "15m": {
-      "mae": 46.794,
-      "rmse": 48.122,
-      "mape": 90.63,
-      "r2": -17.3722
+      "mae": 8.626,
+      "rmse": 11.406,
+      "mape": 21.34,
+      "r2": -0.0377
     },
     "30m": {
-      "mae": 47.569,
-      "rmse": 48.912,
-      "mape": 92.66,
-      "r2": -17.4577
+      "mae": 8.788,
+      "rmse": 11.487,
+      "mape": 21.62,
+      "r2": -0.0242
     },
     "overall": {
-      "mae": 47.797,
-      "rmse": 49.111,
-      "mape": 92.76,
-      "r2": -18.074
+      "mae": 8.614,
+      "rmse": 11.356,
+      "mape": 21.17,
+      "r2": -0.0255
+    },
+    "latency": {
+      "latency_p50_ms": 44.65,
+      "latency_p95_ms": 49.14,
+      "latency_mean_ms": 44.57
+    },
+    "node_stats": {
+      "node_mae_mean": 8.614,
+      "node_mae_min": 8.55,
+      "node_mae_max": 8.724,
+      "node_mae_std": 0.058
     }
+  },
+  "release_evaluation": {
+    "stgnn_mae": 8.614,
+    "best_baseline_mae": 1.692,
+    "promoted": false,
+    "champion_model": "Persistence"
   }
 }

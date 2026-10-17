@@ -108,9 +108,20 @@ class PredictionService:
         model_input: Any | None = None,
         fallback_inputs: dict[str, Any],
     ) -> dict[str, float]:
+        import math
         if self._model is not None and model_input is not None:
             try:
-                return self._model.predict(model_input)
+                preds = self._model.predict(model_input)
+                # Ensure all speeds are finite and within physical range [1.0, 150.0]
+                valid = True
+                for k in ("predicted_speed_5m", "predicted_speed_15m", "predicted_speed_30m"):
+                    val = preds.get(k)
+                    if val is None or not math.isfinite(val) or val < 1.0 or val > 150.0:
+                        valid = False
+                        break
+                if valid:
+                    return preds
+                logger.warning("ST-GNN output %s failed physical range check; falling back to heuristic", preds)
             except Exception as exc:
                 logger.warning("ST-GNN model inference failed (%s); falling back to heuristic", exc)
         return compute_prediction(**fallback_inputs)
@@ -128,3 +139,11 @@ class PredictionService:
     def has_model(self) -> bool:
         """Whether a trained ML model is loaded."""
         return self._model is not None
+
+    @property
+    def model_health_status(self) -> str:
+        """Explicit model health status: 'loaded', 'fallback', or 'degraded'."""
+        if self._model is not None:
+            return "loaded"
+        return "fallback"
+

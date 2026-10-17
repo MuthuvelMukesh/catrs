@@ -176,10 +176,12 @@ class STGNNPredictor:
         hidden_size: int = 32,
         adj_mx: np.ndarray | torch.Tensor | None = None,
         dropout: float = 0.1,
+        scaler: Any | None = None,
     ) -> None:
         self.feature_count = feature_count
         self.node_count = node_count
         self.hidden_size = hidden_size
+        self.scaler = scaler
 
         if adj_mx is not None:
             from data.graphs.adjacency import calculate_gcn_normalized_adjacency
@@ -208,6 +210,7 @@ class STGNNPredictor:
         """Predict 5m, 15m, 30m speeds for a specific node (defaults to node 0).
 
         Maintains full backward compatibility with REST API endpoints and existing tests.
+        Validates outputs to ensure finite values within realistic physical bounds [1.0, 150.0].
         """
         if not isinstance(values, torch.Tensor):
             values = torch.from_numpy(values).float()
@@ -217,15 +220,30 @@ class STGNNPredictor:
                 f"STGNNPredictor expects input of shape [batch, 12, nodes, features], got {values.shape}"
             )
 
+        if not torch.isfinite(values).all():
+            raise ValueError("Input tensor contains non-finite values (NaN or Inf)")
+
         self._model.eval()
         with torch.no_grad():
             output = self._model(values, self._adj_tensor)  # [B, N, 3]
             node_out = output[0, node_index].detach().cpu().numpy()
 
+        if self.scaler is not None:
+            # Scaler expects shape [..., 3]
+            node_out = self.scaler.inverse_transform(node_out)
+
+        # Enforce physical plausibility bounds
+        s5 = float(np.clip(node_out[0], 1.0, 150.0))
+        s15 = float(np.clip(node_out[1], 1.0, 150.0))
+        s30 = float(np.clip(node_out[2], 1.0, 150.0))
+
+        if not (math.isfinite(s5) and math.isfinite(s15) and math.isfinite(s30)):
+            raise ValueError("STGNNPredictor produced non-finite speed predictions")
+
         return {
-            "predicted_speed_5m": float(node_out[0]),
-            "predicted_speed_15m": float(node_out[1]),
-            "predicted_speed_30m": float(node_out[2]),
+            "predicted_speed_5m": s5,
+            "predicted_speed_15m": s15,
+            "predicted_speed_30m": s30,
         }
 
     def predict_all_nodes(
@@ -234,7 +252,7 @@ class STGNNPredictor:
     ) -> np.ndarray:
         """Predict 5m, 15m, 30m speeds for ALL nodes in the network.
 
-        Returns array of shape [B, N, 3].
+        Returns array of shape [B, N, 3] with validated physical speed values.
         """
         if not isinstance(values, torch.Tensor):
             values = torch.from_numpy(values).float()
@@ -244,7 +262,19 @@ class STGNNPredictor:
                 f"STGNNPredictor expects input of shape [batch, 12, nodes, features], got {values.shape}"
             )
 
+        if not torch.isfinite(values).all():
+            raise ValueError("Input tensor contains non-finite values (NaN or Inf)")
+
         self._model.eval()
         with torch.no_grad():
             output = self._model(values, self._adj_tensor)  # [B, N, 3]
-            return output.detach().cpu().numpy()
+            out_np = output.detach().cpu().numpy()
+
+        if self.scaler is not None:
+            out_np = self.scaler.inverse_transform(out_np)
+
+        out_np = np.clip(out_np, 1.0, 150.0)
+        if not np.isfinite(out_np).all():
+            raise ValueError("STGNNPredictor produced non-finite predictions for network nodes")
+
+        return out_np

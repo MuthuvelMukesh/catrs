@@ -14,6 +14,12 @@ class TrafficReading:
     timestamp: datetime
     avg_speed: float
     vehicle_count: int
+    source: str = "unknown"
+    ingested_at: datetime | None = None
+    is_synthetic: bool = False
+    confidence_score: float = 1.0
+    units: str = "km/h"
+    is_stale: bool = False
 
 
 @dataclass(frozen=True)
@@ -23,6 +29,10 @@ class WeatherReading:
     region_id: str
     timestamp: datetime
     severity_score: float  # 0.0 = clear, 1.0 = severe
+    source: str = "unknown"
+    ingested_at: datetime | None = None
+    is_synthetic: bool = False
+    confidence_score: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -33,6 +43,10 @@ class IncidentReading:
     timestamp: datetime
     active: bool
     severity: float  # 0.0 = minor, 1.0 = major
+    source: str = "unknown"
+    ingested_at: datetime | None = None
+    is_synthetic: bool = False
+    confidence_score: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -42,6 +56,10 @@ class EventReading:
     segment_id: str
     timestamp: datetime
     proximity_score: float  # 0.0 = no event, 1.0 = at venue
+    source: str = "unknown"
+    ingested_at: datetime | None = None
+    is_synthetic: bool = False
+    confidence_score: float = 1.0
 
 
 class DataFeed(ABC):

@@ -101,3 +101,33 @@ def test_synthetic_traffic_feed_matches_deterministic_world():
         assert a.timestamp == b.timestamp
         assert a.avg_speed == b.avg_speed
         assert a.vehicle_count == b.vehicle_count
+        assert a.is_synthetic is True
+        assert a.source == "synthetic_world"
+
+
+def test_circuit_breaker_transitions():
+    from app.data.feeds.circuit_breaker import CircuitBreaker, CircuitState
+
+    breaker = CircuitBreaker(failure_threshold=2, recovery_timeout_s=0.1)
+    assert breaker.state == CircuitState.CLOSED
+    assert breaker.can_execute() is True
+
+    # Record first failure: still closed
+    breaker.record_failure()
+    assert breaker.state == CircuitState.CLOSED
+
+    # Record second failure: trips to OPEN
+    breaker.record_failure()
+    assert breaker.state == CircuitState.OPEN
+    assert breaker.can_execute() is False
+
+    # After recovery timeout, transitions to HALF_OPEN
+    import time
+    time.sleep(0.15)
+    assert breaker.can_execute() is True
+    assert breaker.state == CircuitState.HALF_OPEN
+
+    # Success in half open restores to CLOSED
+    breaker.record_success()
+    assert breaker.state == CircuitState.CLOSED
+

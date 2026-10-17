@@ -126,6 +126,8 @@ class IngestPipeline:
             except Exception as exc:
                 logger.error("Failed to refresh historical baselines: %s", exc)
 
+        is_synthetic = any(getattr(r, "is_synthetic", False) for r in traffic_readings) if traffic_readings else False
+
         return IngestResult(
             traffic_readings_fetched=len(traffic_readings),
             contexts_produced=len(contexts),
@@ -134,6 +136,7 @@ class IngestPipeline:
             contexts=contexts,
             feed_statuses=feed_statuses,
             is_degraded=is_degraded,
+            is_synthetic=is_synthetic,
         )
 
 
@@ -150,6 +153,7 @@ class IngestResult:
         contexts: list[SegmentContext],
         feed_statuses: dict[str, str] | None = None,
         is_degraded: bool = False,
+        is_synthetic: bool = False,
     ) -> None:
         self.traffic_readings_fetched = traffic_readings_fetched
         self.contexts_produced = contexts_produced
@@ -158,6 +162,7 @@ class IngestResult:
         self.contexts = contexts
         self.feed_statuses = feed_statuses or {}
         self.is_degraded = is_degraded
+        self.is_synthetic = is_synthetic
 
     def __repr__(self) -> str:
         return (
@@ -165,5 +170,7 @@ class IngestResult:
             f"contexts={self.contexts_produced}, "
             f"persisted={self.readings_persisted}, "
             f"baselines={self.baselines_refreshed}, "
-            f"degraded={self.is_degraded})"
+            f"degraded={self.is_degraded}, "
+            f"synthetic={self.is_synthetic})"
         )
+

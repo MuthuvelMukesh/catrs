@@ -107,13 +107,15 @@ async function refreshHealth() {
   // Routing Engine
   try {
     const rh = await api(routingUrl('/health?full=true'));
-    setStatusCard('health-routing-status', rh.status, rh.status === 'ok' ? 'ok' : 'error');
+    const isHealthy = rh.status === 'ok' || rh.status === 'healthy';
+    const isDegraded = rh.status === 'degraded';
+    setStatusCard('health-routing-status', rh.status, isHealthy ? 'ok' : isDegraded ? 'warn' : 'error');
     setStatusCard('health-db-status', rh.database || '—', rh.database === 'connected' ? 'ok' : 'warn');
     setStatusCard('health-redis-status', rh.redis || '—', rh.redis === 'connected' ? 'ok' : 'warn');
     setStatusCard('health-predictor-status', rh.predictor || '—',
-      rh.predictor === 'loaded' ? 'ok' : rh.predictor === 'fallback' ? 'warn' : 'error');
+      rh.predictor === 'loaded' ? 'ok' : rh.predictor === 'heuristic_fallback' ? 'warn' : 'error');
     document.getElementById('health-predictor-detail').textContent =
-      rh.predictor === 'loaded' ? 'ST-GNN model active' : 'Heuristic fallback';
+      rh.predictor_health ? `Status: ${rh.predictor_health}` : (rh.predictor === 'loaded' ? 'ST-GNN model active' : 'Persistence champion active');
 
     if (rh.dataset) {
       const nameEl = document.getElementById('telemetry-dataset-name');
@@ -123,6 +125,8 @@ async function refreshHealth() {
       const versionEl = document.getElementById('telemetry-version');
       const horizonsEl = document.getElementById('telemetry-horizons');
       const selectEl = document.getElementById('dataset-select');
+      const provEl = document.getElementById('telemetry-provenance');
+      const healthEl = document.getElementById('telemetry-predictor-health');
 
       if (nameEl) nameEl.textContent = rh.dataset;
       if (nodesEl) nodesEl.textContent = rh.num_nodes || '—';
@@ -131,6 +135,41 @@ async function refreshHealth() {
       if (versionEl) versionEl.textContent = rh.model_version || 'stgnn-v1';
       if (horizonsEl && rh.horizons) horizonsEl.textContent = rh.horizons.join(' / ');
       if (selectEl && rh.dataset_mode) selectEl.value = rh.dataset_mode;
+      if (provEl) {
+        provEl.textContent = rh.is_synthetic ? 'Synthetic (Simulated)' : 'Live Sensor Feed';
+        provEl.style.color = rh.is_synthetic ? '#f59e0b' : '#10b981';
+      }
+      if (healthEl) {
+        healthEl.textContent = rh.predictor_health || (rh.predictor === 'loaded' ? 'ST-GNN active' : 'Champion: Persistence');
+      }
+    }
+
+    const headerBadge = document.getElementById('header-data-badge');
+    if (headerBadge) {
+      if (rh && rh.is_synthetic) {
+        headerBadge.textContent = '🟡 Simulation';
+        headerBadge.style.color = '#f59e0b';
+        headerBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+        headerBadge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+      } else if (rh) {
+        headerBadge.textContent = '🟢 Live Sensors';
+        headerBadge.style.color = '#10b981';
+        headerBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+        headerBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      }
+    }
+
+    const degradedBox = document.getElementById('degraded-warning-container');
+    const degradedText = document.getElementById('degraded-warning-text');
+    if (degradedBox) {
+      if (rh && (rh.status === 'degraded' || rh.redis === 'process_local_fallback')) {
+        degradedBox.style.display = 'block';
+        if (degradedText) {
+          degradedText.textContent = '⚠️ System operating in degraded mode: Process-local fallback counter active. Cross-instance capacity is not synchronized.';
+        }
+      } else {
+        degradedBox.style.display = 'none';
+      }
     }
   } catch (err) {
     setStatusCard('health-routing-status', 'offline', 'error');
@@ -142,20 +181,26 @@ async function refreshHealth() {
   // Audit Service
   try {
     const ah = await api(auditUrl('/health?full=true'));
-    setStatusCard('health-audit-status', ah.status, ah.status === 'ok' ? 'ok' : 'error');
+    const isAuditOk = ah.status === 'ok' || ah.status === 'healthy';
+    setStatusCard('health-audit-status', ah.status, isAuditOk ? 'ok' : 'error');
   } catch {
     setStatusCard('health-audit-status', 'offline', 'error');
   }
 
   // Global dot
-  const routingOk = document.getElementById('health-routing-status').textContent === 'ok';
-  const auditOk = document.getElementById('health-audit-status').textContent === 'ok';
+  const routingStatus = document.getElementById('health-routing-status').textContent;
+  const auditStatus = document.getElementById('health-audit-status').textContent;
+  const routingOk = routingStatus === 'ok' || routingStatus === 'healthy';
+  const auditOk = auditStatus === 'ok' || auditStatus === 'healthy';
   if (routingOk && auditOk) {
     statusDot.classList.remove('offline');
     statusText.textContent = 'All systems operational';
+  } else if (routingStatus === 'degraded' || auditStatus === 'degraded') {
+    statusDot.classList.add('offline');
+    statusText.textContent = 'System operating in degraded mode';
   } else {
     statusDot.classList.add('offline');
-    statusText.textContent = 'Some services degraded';
+    statusText.textContent = 'Some services offline';
   }
 }
 
@@ -311,8 +356,240 @@ document.getElementById('predict-form').addEventListener('submit', async (e) => 
 // ROUTE
 // ═══════════════════════════════════════════════════════════════
 
+// ── Route Sub-Tab Switcher ──────────────────────────────────────
+const routeSubtabBtns = document.querySelectorAll('.subtab-btn[data-routesubtab]');
+routeSubtabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.routesubtab;
+    routeSubtabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (target === 'graph-plan') {
+      document.getElementById('route-subpanel-graph').classList.remove('hidden');
+      document.getElementById('route-subpanel-manual').classList.add('hidden');
+    } else {
+      document.getElementById('route-subpanel-graph').classList.add('hidden');
+      document.getElementById('route-subpanel-manual').classList.remove('hidden');
+    }
+  });
+});
+
+// ── Interactive Road Graph Map ──────────────────────────────────
+const NODE_COORDINATES = {
+  node_nw: [200, 110],
+  node_n: [350, 110],
+  node_ne: [500, 110],
+  node_w: [200, 220],
+  node_center: [350, 220],
+  node_e: [500, 220],
+  node_sw: [200, 330],
+  node_s: [350, 330],
+  node_se: [500, 330],
+  hwy_west: [80, 220],
+  hwy_east: [620, 220],
+  hwy_north: [350, 30],
+};
+
+let currentSelectionStage = 'origin';
+
+function updateMapNodeHighlights() {
+  const origin = document.getElementById('plan-origin').value;
+  const dest = document.getElementById('plan-destination').value;
+  document.querySelectorAll('.map-node').forEach(el => {
+    el.classList.remove('origin', 'destination');
+    if (el.dataset.node === origin) el.classList.add('origin');
+    if (el.dataset.node === dest) el.classList.add('destination');
+  });
+}
+
+document.querySelectorAll('.map-node').forEach(nodeEl => {
+  nodeEl.addEventListener('click', () => {
+    const nodeId = nodeEl.dataset.node;
+    if (currentSelectionStage === 'origin') {
+      document.getElementById('plan-origin').value = nodeId;
+      updateMapNodeHighlights();
+      currentSelectionStage = 'destination';
+      showToast(`Origin set to ${nodeId}. Now select destination node.`);
+    } else {
+      document.getElementById('plan-destination').value = nodeId;
+      updateMapNodeHighlights();
+      currentSelectionStage = 'origin';
+      showToast(`Destination set to ${nodeId}. Ready to plan trip.`);
+    }
+  });
+});
+
+const planOriginEl = document.getElementById('plan-origin');
+const planDestEl = document.getElementById('plan-destination');
+if (planOriginEl) planOriginEl.addEventListener('change', updateMapNodeHighlights);
+if (planDestEl) planDestEl.addEventListener('change', updateMapNodeHighlights);
+
+function drawPathsOnMap(paths) {
+  const overlayGroup = document.getElementById('map-path-overlays');
+  if (!overlayGroup) return;
+  overlayGroup.innerHTML = '';
+
+  const classMap = ['path-highlight-1', 'path-highlight-2', 'path-highlight-3'];
+
+  paths.forEach((path, idx) => {
+    const colorClass = classMap[idx] || 'path-highlight-3';
+    const nodes = path.nodes;
+    if (!nodes || nodes.length < 2) return;
+
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const u = nodes[i];
+      const v = nodes[i + 1];
+      const uCoords = NODE_COORDINATES[u];
+      const vCoords = NODE_COORDINATES[v];
+      if (!uCoords || !vCoords) continue;
+
+      const offset = (idx - 1) * 3;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', uCoords[0] + offset);
+      line.setAttribute('y1', uCoords[1] + offset);
+      line.setAttribute('x2', vCoords[0] + offset);
+      line.setAttribute('y2', vCoords[1] + offset);
+      line.setAttribute('class', `map-edge ${colorClass}`);
+      overlayGroup.appendChild(line);
+    }
+  });
+}
+
+function renderGraphPlanResults(data) {
+  const container = document.getElementById('graph-paths-visual');
+  const resultsPanel = document.getElementById('graph-plan-results');
+  if (!container || !resultsPanel) return;
+
+  const ranked = data.ranked_routes || [];
+  const assignments = data.assignments || {};
+  const total = data.total_requests || 1;
+
+  let html = '';
+  ranked.forEach((r, idx) => {
+    const assigned = assignments[r.route_id] || 0;
+    const pct = total > 0 ? Math.round((assigned / total) * 100) : 0;
+    const isWinner = idx === 0;
+    const badgeColor = isWinner ? '#00ff88' : idx === 1 ? '#00d4ff' : '#a855f7';
+
+    html += `
+      <div class="ranked-card ${isWinner ? 'ranked-card--winner' : ''}" style="border-left: 4px solid ${badgeColor};">
+        <div class="ranked-card__rank" style="color:${badgeColor}">Rank #${idx + 1} ${isWinner ? '★ Primary Selected' : 'Alternative Corridor'}</div>
+        <div class="ranked-card__id">${escapeHtml(r.route_id)}</div>
+        <div class="ranked-card__meta">
+          <div>
+            <span class="ranked-card__meta-label">Est. Travel Time</span>
+            <span class="ranked-card__meta-value">${fmt(r.travel_time_s)} s</span>
+          </div>
+          <div>
+            <span class="ranked-card__meta-label">Path Distance</span>
+            <span class="ranked-card__meta-value">${fmt(r.distance_m)} m</span>
+          </div>
+          <div>
+            <span class="ranked-card__meta-label">Priority Cost</span>
+            <span class="ranked-card__meta-value">${fmt(r.effective_cost || r.priority_score)}</span>
+          </div>
+          <div>
+            <span class="ranked-card__meta-label">Allocated Traffic</span>
+            <span class="ranked-card__meta-value" style="color:${badgeColor}">${assigned} trips (${pct}%)</span>
+          </div>
+        </div>
+        ${r.nodes ? `<div style="margin-top:10px; font-size:12px; font-family:var(--font-mono); color:#94a3b8; background:rgba(0,0,0,0.25); padding:6px 10px; border-radius:4px;">Node Path: ${r.nodes.join(' → ')}</div>` : ''}
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+
+  // Render assignments bar
+  const barContainer = document.getElementById('graph-assignments-bar');
+  if (barContainer) {
+    let barHtml = '';
+    const colors = ['#00ff88', '#00d4ff', '#a855f7', '#ffb800'];
+    let colorIdx = 0;
+    for (const [rid, count] of Object.entries(assignments)) {
+      const pct = total > 0 ? (count / total) * 100 : 0;
+      if (pct > 0) {
+        const c = colors[colorIdx % colors.length];
+        barHtml += `
+          <div class="assignments-bar__seg" style="width:${pct}%; background:${c};" title="${escapeHtml(rid)}: ${count} (${pct.toFixed(1)}%)">
+            <span>${escapeHtml(rid)}: ${count} (${pct.toFixed(0)}%)</span>
+          </div>
+        `;
+        colorIdx++;
+      }
+    }
+    barContainer.innerHTML = barHtml || '<div style="color:var(--text-muted);font-size:13px;">No assignments.</div>';
+  }
+
+  // Render explanation
+  const expGrid = document.getElementById('graph-explanation-grid');
+  if (expGrid) {
+    const exp = data.explanation || {};
+    expGrid.innerHTML = `
+      <div class="explanation-item">
+        <div class="explanation-item__label">Recommended Corridor</div>
+        <div class="explanation-item__value">${escapeHtml(exp.route_id || '—')}</div>
+      </div>
+      <div class="explanation-item">
+        <div class="explanation-item__label">Trip Category & Weight</div>
+        <div class="explanation-item__value">${escapeHtml(data.trip_category || '—')} (${exp.priority_context ? exp.priority_context.weight_applied : '1.0'}x)</div>
+      </div>
+      <div class="explanation-item">
+        <div class="explanation-item__label">Diversification Status</div>
+        <div class="explanation-item__value">${exp.diversification && exp.diversification.applied ? 'Active (Cap Applied)' : 'Direct Allocation'}</div>
+      </div>
+      <div class="explanation-item">
+        <div class="explanation-item__label">Operational Mode</div>
+        <div class="explanation-item__value">${exp.diversification && exp.diversification.is_degraded ? '⚠️ Degraded Fallback' : 'Healthy (Atomic)'}</div>
+      </div>
+    `;
+  }
+
+  resultsPanel.classList.remove('hidden');
+}
+
+const graphPlanForm = document.getElementById('graph-plan-form');
+if (graphPlanForm) {
+  graphPlanForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-graph-plan');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Computing Graph Paths…';
+
+    try {
+      const origin = document.getElementById('plan-origin').value;
+      const dest = document.getElementById('plan-destination').value;
+      const tripCat = document.getElementById('plan-trip-category').value;
+      const count = parseInt(document.getElementById('plan-request-count').value, 10) || 1;
+      const cap = parseFloat(document.getElementById('plan-cap-fraction').value) || 1.0;
+
+      const data = await api(routingUrl('/route/plan'), {
+        method: 'POST',
+        body: JSON.stringify({
+          origin_node: origin,
+          destination_node: dest,
+          trip_category: tripCat,
+          request_count: count,
+          cap_fraction: cap,
+          k_alternatives: 3,
+        }),
+      });
+
+      renderGraphPlanResults(data);
+      drawPathsOnMap(data.candidate_paths);
+      showToast(`Calculated ${data.candidate_paths.length} candidate paths from ${origin} to ${dest}`, 'success');
+    } catch (err) {
+      showToast(`Routing failed: ${err.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Plan Physical Routes';
+    }
+  });
+}
+
+// ── Classical Custom Corridor Form ──────────────────────────────
 // Add route row
-document.getElementById('btn-add-route').addEventListener('click', () => {
+const btnAddRoute = document.getElementById('btn-add-route');
+if (btnAddRoute) {
+  btnAddRoute.addEventListener('click', () => {
   const rows = document.getElementById('route-rows');
   const idx = rows.children.length;
   const row = document.createElement('div');
@@ -342,7 +619,8 @@ document.getElementById('btn-add-route').addEventListener('click', () => {
     <button type="button" class="btn btn--danger btn--sm btn-remove-route">✕</button>
   `;
   rows.appendChild(row);
-});
+  });
+}
 
 // Remove route row (delegated)
 document.getElementById('route-rows').addEventListener('click', (e) => {

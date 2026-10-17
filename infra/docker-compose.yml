@@ -5,25 +5,32 @@ services:
     image: timescale/timescaledb:latest-pg16
     container_name: traffic-postgres
     environment:
-      POSTGRES_DB: traffic
-      POSTGRES_USER: traffic
-      POSTGRES_PASSWORD: traffic
+      POSTGRES_DB: ${POSTGRES_DB:-traffic}
+      POSTGRES_USER: ${POSTGRES_USER:-traffic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traffic}
     ports:
-      - "5432:5432"
+      # Restricted to loopback interface to prevent external unauthorized exposure
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U traffic -d traffic"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-traffic} -d ${POSTGRES_DB:-traffic}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: traffic-redis
     ports:
-      - "6379:6379"
+      # Restricted to loopback interface
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -31,6 +38,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
 
   routing-engine:
     build:
@@ -39,15 +51,28 @@ services:
     ports:
       - "8001:8000"
     environment:
-      DATABASE_URL: postgresql://traffic:traffic@postgres:5432/traffic
+      DATABASE_URL: postgresql://${POSTGRES_USER:-traffic}:${POSTGRES_PASSWORD:-traffic}@postgres:5432/${POSTGRES_DB:-traffic}
       REDIS_URL: redis://redis:6379/0
-      ROUTING_MODE: synthetic
-      STGNN_ENABLED: "false"
+      ROUTING_MODE: ${ROUTING_MODE:-synthetic}
+      STGNN_ENABLED: ${STGNN_ENABLED:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      ROUTING_API_KEY: ${ROUTING_API_KEY:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
 
   audit-service:
     build:
@@ -56,13 +81,24 @@ services:
     ports:
       - "8002:8000"
     environment:
-      DATABASE_URL: postgresql://traffic:traffic@postgres:5432/traffic
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-traffic}:${POSTGRES_PASSWORD:-traffic}@postgres:5432/${POSTGRES_DB:-traffic}
+      AUDIT_MODE: ${AUDIT_MODE:-synthetic}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      AUDIT_API_KEY: ${AUDIT_API_KEY:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
 
   frontend:
     build:
@@ -77,4 +113,3 @@ services:
 volumes:
   postgres-data:
   redis-data:
-

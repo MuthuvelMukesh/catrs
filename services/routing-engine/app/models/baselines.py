@@ -23,8 +23,9 @@ from app.models.st_gnn import GraphConvolution, SpatioTemporalGNN
 class HistoricalMeanModel:
     """Predicts historical baseline speed for all future horizons."""
 
-    def __init__(self, baseline_channel_idx: int = 3) -> None:
+    def __init__(self, baseline_channel_idx: int = 3, scaler: Any | None = None) -> None:
         self.baseline_channel_idx = baseline_channel_idx
+        self.scaler = scaler
 
     def predict(self, x: np.ndarray | torch.Tensor) -> np.ndarray:
         """Args:
@@ -37,14 +38,18 @@ class HistoricalMeanModel:
             x = x.detach().cpu().numpy()
         # Lookback last step baseline speed
         baseline = x[:, -1, :, self.baseline_channel_idx]  # [B, N]
-        return np.repeat(baseline[:, :, np.newaxis], 3, axis=-1)
+        pred = np.repeat(baseline[:, :, np.newaxis], 3, axis=-1)
+        if self.scaler is not None:
+            pred = self.scaler.inverse_transform(pred)
+        return pred
 
 
 class PersistenceModel:
     """Predicts current observed speed for all future horizons (naive persistence)."""
 
-    def __init__(self, speed_channel_idx: int = 0) -> None:
+    def __init__(self, speed_channel_idx: int = 0, scaler: Any | None = None) -> None:
         self.speed_channel_idx = speed_channel_idx
+        self.scaler = scaler
 
     def predict(self, x: np.ndarray | torch.Tensor) -> np.ndarray:
         """Args:
@@ -56,14 +61,18 @@ class PersistenceModel:
         if isinstance(x, torch.Tensor):
             x = x.detach().cpu().numpy()
         last_speed = x[:, -1, :, self.speed_channel_idx]  # [B, N]
-        return np.repeat(last_speed[:, :, np.newaxis], 3, axis=-1)
+        pred = np.repeat(last_speed[:, :, np.newaxis], 3, axis=-1)
+        if self.scaler is not None:
+            pred = self.scaler.inverse_transform(pred)
+        return pred
 
 
 class LinearRegressionModel:
     """Ordinary least squares / Ridge mapping 12 historical speeds to 3 horizon speeds."""
 
-    def __init__(self, alpha: float = 1.0) -> None:
+    def __init__(self, alpha: float = 1.0, scaler: Any | None = None) -> None:
         self.alpha = alpha
+        self.scaler = scaler
         self.weights: np.ndarray | None = None  # [13, 3] (12 lookback + 1 bias)
 
     def fit(self, x_train: np.ndarray, y_train: np.ndarray) -> LinearRegressionModel:
@@ -98,12 +107,16 @@ class LinearRegressionModel:
         B, T, N, F = x.shape
         if self.weights is None:
             # Fallback to persistence
-            return np.repeat(x[:, -1, :, 0, np.newaxis], 3, axis=-1)
-        x_flat = x[:, :, :, 0].transpose(0, 2, 1).reshape(-1, T)  # [B * N, 12]
-        bias = np.ones((x_flat.shape[0], 1), dtype=np.float32)
-        X_design = np.hstack([x_flat, bias])
-        y_pred = X_design @ self.weights  # [B * N, 3]
-        return y_pred.reshape(B, N, 3)
+            pred = np.repeat(x[:, -1, :, 0, np.newaxis], 3, axis=-1)
+        else:
+            x_flat = x[:, :, :, 0].transpose(0, 2, 1).reshape(-1, T)  # [B * N, 12]
+            bias = np.ones((x_flat.shape[0], 1), dtype=np.float32)
+            X_design = np.hstack([x_flat, bias])
+            y_pred = X_design @ self.weights  # [B * N, 3]
+            pred = y_pred.reshape(B, N, 3)
+        if self.scaler is not None:
+            pred = self.scaler.inverse_transform(pred)
+        return pred
 
 
 class GRUModel(nn.Module):

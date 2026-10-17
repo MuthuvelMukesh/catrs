@@ -1039,3 +1039,162 @@ body::before {
 .modal .btn-group {
   justify-content: flex-end;
 }
+
+/* ── Interactive Road Graph Map & Route Planner ───────────────── */
+.map-card-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .map-card-wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+.road-map-container {
+  background: radial-gradient(circle at 50% 50%, rgba(15, 23, 60, 0.8) 0%, rgba(5, 8, 22, 0.95) 100%);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.road-map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.map-edge {
+  stroke: rgba(100, 120, 200, 0.25);
+  stroke-width: 2;
+  transition: all var(--transition-base);
+}
+
+.map-edge.arterial {
+  stroke: rgba(100, 140, 240, 0.4);
+  stroke-width: 2.5;
+}
+
+.map-edge.highway {
+  stroke: rgba(255, 184, 0, 0.4);
+  stroke-width: 3.5;
+}
+
+.map-edge.corridor {
+  stroke: rgba(0, 212, 255, 0.45);
+  stroke-width: 3;
+}
+
+.map-edge.path-highlight-1 {
+  stroke: #00ff88 !important;
+  stroke-width: 5 !important;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.8));
+}
+
+.map-edge.path-highlight-2 {
+  stroke: #00d4ff !important;
+  stroke-width: 4 !important;
+  stroke-dasharray: 6 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.7));
+}
+
+.map-edge.path-highlight-3 {
+  stroke: #a855f7 !important;
+  stroke-width: 3.5 !important;
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.6));
+}
+
+.map-node {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.map-node circle {
+  fill: #0a0e27;
+  stroke: #38bdf8;
+  stroke-width: 2;
+  transition: all var(--transition-fast);
+}
+
+.map-node:hover circle {
+  fill: #00d4ff;
+  stroke: #ffffff;
+  r: 9;
+  filter: drop-shadow(0 0 10px #00d4ff);
+}
+
+.map-node text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: #94a3b8;
+  user-select: none;
+  pointer-events: none;
+}
+
+.map-node.origin circle {
+  fill: #00ff88;
+  stroke: #ffffff;
+  stroke-width: 3;
+  r: 10;
+  filter: drop-shadow(0 0 12px #00ff88);
+}
+
+.map-node.destination circle {
+  fill: #ffb800;
+  stroke: #ffffff;
+  stroke-width: 3;
+  r: 10;
+  filter: drop-shadow(0 0 12px #ffb800);
+}
+
+.subtab-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-lg);
+  background: var(--bg-surface-elevated, rgba(15, 23, 60, 0.4));
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+}
+
+.subtab-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.subtab-btn.active {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+
+.degraded-banner {
+  background: rgba(255, 184, 0, 0.12);
+  border: 1px solid rgba(255, 184, 0, 0.35);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: var(--space-lg);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fbbf24;
+  font-size: 13px;
+}

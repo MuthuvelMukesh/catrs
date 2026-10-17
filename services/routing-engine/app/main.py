@@ -1,16 +1,24 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
+import logging
 import math
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.config import RunMode, Settings
 from app.metrics import metrics
 from app.routing.priority_routing import rank_routes, route_trip
 from app.routing.travel_time import enrich_routes_with_travel_time
 from app.runtime import RuntimeDependencies, build_runtime_dependencies
+
+logger = logging.getLogger("catrs.routing_engine")
+settings = Settings.from_env()
 
 
 class RouteOption(BaseModel):
@@ -43,6 +51,18 @@ class RouteRequest(BaseModel):
     observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class PlanRouteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    origin_node: str = Field(min_length=1, description="Origin node identifier (e.g. N1)")
+    destination_node: str = Field(min_length=1, description="Destination node identifier (e.g. N9)")
+    trip_category: str = Field(default="commuter_general", min_length=1)
+    request_count: int = Field(default=1, ge=1)
+    cap_fraction: float = Field(default=1.0, gt=0.0, le=1.0)
+    k_alternatives: int = Field(default=3, ge=1, le=10)
+    weight_schedule_version: str | None = None
+
+
 class PredictRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -71,17 +91,6 @@ class PredictRequest(BaseModel):
         return v
 
 
-app = FastAPI(title="Routing Engine")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
 class DatasetSelectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     dataset: str = Field(description="Dataset mode to switch to: synthetic, metr_la, or pems_bay")
@@ -90,6 +99,55 @@ class DatasetSelectRequest(BaseModel):
 # Global active dataset state
 _active_dataset = "synthetic"
 
+app = FastAPI(title="Routing Engine")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+admin_key_header = APIKeyHeader(name="X-Admin-API-Key", auto_error=False)
+
+
+def verify_routing_api_key(api_key: str | None = Security(api_key_header)) -> bool:
+    current_settings = Settings.from_env()
+    if current_settings.api_key:
+        if not api_key or api_key != current_settings.api_key:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key (X-API-Key)")
+    return True
+
+
+def verify_admin_api_key(admin_key: str | None = Security(admin_key_header)) -> bool:
+    current_settings = Settings.from_env()
+    if current_settings.admin_api_key:
+        if not admin_key or admin_key != current_settings.admin_api_key:
+            raise HTTPException(status_code=403, detail="Invalid or missing Admin API key (X-Admin-API-Key)")
+    return True
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    logger.error(
+        "Unhandled exception in routing engine on %s %s: %s",
+        request.method,
+        request.url.path,
+        str(exc),
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "InternalServerError",
+            "message": "An unexpected error occurred while processing routing request. Sensitive details have been redacted.",
+        },
+    )
+
 
 @app.get("/health")
 def health(
@@ -97,20 +155,26 @@ def health(
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
 ) -> dict[str, Any]:
     if full:
+        current_settings = Settings.from_env()
         db_status = (
             "connected"
             if (dependencies is not None and dependencies.database_connection is not None)
-            else "unavailable"
+            else ("unavailable" if current_settings.mode == RunMode.PRODUCTION else "synthetic_memory")
         )
         redis_status = (
             "connected"
             if (dependencies is not None and dependencies.route_counter is not None and dependencies.route_counter.is_available)
-            else "unavailable"
+            else "process_local_fallback"
         )
         model_status = (
             "loaded"
             if dependencies is not None and dependencies.prediction_service.has_model
-            else "fallback"
+            else "heuristic_fallback"
+        )
+        model_health = (
+            dependencies.prediction_service.model_health_status
+            if dependencies is not None
+            else "uninitialized"
         )
 
         node_map = {"synthetic": 100, "metr_la": 207, "pems_bay": 325}
@@ -120,11 +184,18 @@ def health(
         ds_key = _active_dataset.lower()
         metrics.set_dataset_info(ds_key, version_map.get(ds_key, "stgnn-v1"))
 
+        overall_status = "healthy"
+        if current_settings.mode == RunMode.PRODUCTION:
+            if db_status == "unavailable" or redis_status == "process_local_fallback":
+                overall_status = "degraded"
+
         return {
-            "status": "ok",
+            "status": overall_status,
+            "mode": current_settings.mode.value,
             "database": db_status,
             "redis": redis_status,
             "predictor": model_status,
+            "predictor_health": model_health,
             "dataset": label_map.get(ds_key, "SYNTHETIC"),
             "dataset_mode": ds_key,
             "num_nodes": node_map.get(ds_key, 100),
@@ -132,8 +203,22 @@ def health(
             "model": "ST-GNN" if model_status == "loaded" else "Heuristic",
             "model_version": version_map.get(ds_key, "stgnn-v1"),
             "horizons": ["5m", "15m", "30m"],
+            "is_synthetic": current_settings.mode == RunMode.SYNTHETIC,
+            "data_freshness": "live" if current_settings.mode != RunMode.SYNTHETIC else "simulated",
         }
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready(
+    dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+) -> dict[str, Any]:
+    """Readiness probe distinguishing a running process from one ready to serve traffic."""
+    current_settings = Settings.from_env()
+    if current_settings.mode == RunMode.PRODUCTION:
+        if dependencies is None or dependencies.database_connection is None:
+            raise HTTPException(status_code=503, detail="Database connection not ready")
+    return {"status": "ready"}
 
 
 @app.get("/dataset/info")
@@ -164,12 +249,16 @@ def dataset_info(
 def dataset_select(
     request: DatasetSelectRequest,
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _admin_authorized: bool = Depends(verify_admin_api_key),
 ) -> dict[str, Any]:
-    """Select active dataset mode (synthetic, metr_la, pems_bay)."""
+    """Select active dataset mode (synthetic, metr_la, pems_bay). Requires admin privileges when key configured."""
     global _active_dataset
     choice = request.dataset.lower()
     if choice not in ("synthetic", "metr_la", "pems_bay"):
-        raise HTTPException(status_code=400, detail=f"Invalid dataset '{choice}'. Must be 'synthetic', 'metr_la', or 'pems_bay'.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid dataset '{choice}'. Must be 'synthetic', 'metr_la', or 'pems_bay'.",
+        )
 
     _active_dataset = choice
     metrics.record_dataset_load(choice)
@@ -193,6 +282,7 @@ def get_metrics() -> str:
 def predict(
     request: PredictRequest,
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_routing_api_key),
 ) -> dict[str, Any]:
     """Return multi-horizon speed predictions for a single segment.
 
@@ -257,6 +347,7 @@ def predict(
 def route(
     request: RouteRequest,
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_routing_api_key),
 ) -> dict[str, Any]:
     if request.weight_schedule is None:
         if dependencies is None or dependencies.weight_schedules is None or request.weight_schedule_version is None:
@@ -331,3 +422,51 @@ def route(
 
     metrics.record_route_request(request.trip_category, status="success")
     return result
+
+
+@app.post("/route/plan")
+def plan_route(
+    request: PlanRouteRequest,
+    dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_routing_api_key),
+) -> dict[str, Any]:
+    """Plan realistic graph-based route between origin and destination nodes.
+
+    Uses topological RoadGraph with Dijkstra/A* algorithms,
+    BPR congestion-aware travel times, and rolling diversification.
+    """
+    from app.routing.road_network import UnreachableDestinationError
+
+    route_service = (
+        dependencies.network_route_service
+        if dependencies is not None and dependencies.network_route_service is not None
+        else None
+    )
+    if route_service is None:
+        from app.routing.route_generator import NetworkRouteService
+        route_service = NetworkRouteService()
+
+    weight_schedule = None
+    if request.weight_schedule_version and dependencies is not None and dependencies.weight_schedules is not None:
+        weight_schedule = dependencies.weight_schedules.get_version(version=request.weight_schedule_version)
+
+    counter = dependencies.route_counter if dependencies is not None else None
+
+    try:
+        plan = route_service.plan_trip(
+            origin_node=request.origin_node,
+            destination_node=request.destination_node,
+            trip_category=request.trip_category,
+            request_count=request.request_count,
+            cap_fraction=request.cap_fraction,
+            k_alternatives=request.k_alternatives,
+            counter=counter,
+            weight_schedule=weight_schedule,
+        )
+    except Exception as exc:
+        if type(exc).__name__ == "UnreachableDestinationError" or isinstance(exc, UnreachableDestinationError):
+            raise HTTPException(status_code=404, detail=str(exc))
+        raise
+
+    metrics.record_route_request(request.trip_category, status="success")
+    return plan

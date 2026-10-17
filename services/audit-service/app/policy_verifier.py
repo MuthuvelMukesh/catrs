@@ -33,21 +33,32 @@ def verify_route_outcome(
         if float(weight_applied) != expected_weight:
             failures.append("applied priority weight does not match the published policy")
 
-    # 4. Effective date check (if outcome timestamp is present)
+    # 4. Effective date and expiration check (if outcome timestamp is present)
     outcome_at = outcome.get("outcome_at")
     effective_date_str = weight_schedule.get("effective_date")
-    if outcome_at and effective_date_str:
+    expiration_date_str = weight_schedule.get("expiration_date") or weight_schedule.get("expires_at")
+    if outcome_at:
         try:
             if isinstance(outcome_at, datetime):
                 outcome_dt = outcome_at.date()
             else:
                 outcome_dt = datetime.fromisoformat(str(outcome_at).replace("Z", "+00:00")).date()
-            eff_dt = date.fromisoformat(str(effective_date_str))
-            if outcome_dt < eff_dt:
-                failures.append(
-                    f"policy schedule {expected_version!r} was not yet effective "
-                    f"at outcome date {outcome_dt.isoformat()} (effective from {eff_dt.isoformat()})"
-                )
+
+            if effective_date_str:
+                eff_dt = date.fromisoformat(str(effective_date_str))
+                if outcome_dt < eff_dt:
+                    failures.append(
+                        f"policy schedule {expected_version!r} was not yet effective "
+                        f"at outcome date {outcome_dt.isoformat()} (effective from {eff_dt.isoformat()})"
+                    )
+
+            if expiration_date_str:
+                exp_dt = date.fromisoformat(str(expiration_date_str))
+                if outcome_dt > exp_dt:
+                    failures.append(
+                        f"policy schedule {expected_version!r} has expired "
+                        f"before outcome date {outcome_dt.isoformat()} (expired on {exp_dt.isoformat()})"
+                    )
         except (ValueError, TypeError):
             pass
 

@@ -72,6 +72,11 @@ class Settings:
     default_cap_fraction: float = 1.0
     diversification_window_seconds: int = 60
 
+    # Security & Access Control
+    cors_origins: list[str] = field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
+    api_key: str | None = None
+    admin_api_key: str | None = None
+
     @classmethod
     def from_env(cls) -> Settings:
         """Build settings from environment variables."""
@@ -87,6 +92,9 @@ class Settings:
             incident_url=os.environ.get("INCIDENT_FEED_URL"),
             event_url=os.environ.get("EVENT_FEED_URL"),
         )
+
+        cors_str = os.environ.get("CORS_ORIGINS")
+        cors_origins = [o.strip() for o in cors_str.split(",") if o.strip()] if cors_str else ["http://localhost:3000", "http://127.0.0.1:3000"]
 
         return cls(
             mode=mode,
@@ -107,4 +115,7 @@ class Settings:
             prediction_interval_minutes=int(os.environ.get("PREDICTION_INTERVAL_MINUTES", "5")),
             default_cap_fraction=float(os.environ.get("DEFAULT_CAP_FRACTION", "1.0")),
             diversification_window_seconds=int(os.environ.get("DIVERSIFICATION_WINDOW_SECONDS", "60")),
+            cors_origins=cors_origins,
+            api_key=os.environ.get("ROUTING_API_KEY"),
+            admin_api_key=os.environ.get("ADMIN_API_KEY"),
         )

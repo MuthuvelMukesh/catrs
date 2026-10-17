@@ -16,6 +16,9 @@ DATA_DIR = REPO_ROOT / "data"
 
 def test_real_dataset_prediction():
     """Verify that a trained ST-GNN model produces valid multi-horizon predictions for METR-LA."""
+    metr_pkl = DATA_DIR / "raw" / "adj_mx_METR-LA.pkl"
+    if not metr_pkl.exists():
+        pytest.skip("METR-LA raw dataset files not present in data/raw/")
     ds = get_dataset(DatasetMode.METR_LA, data_dir=DATA_DIR)
     sensor_ids, adj = ds.get_graph()
 
@@ -36,6 +39,9 @@ def test_real_dataset_prediction():
 
 def test_real_prediction_to_routing():
     """Verify that per-sensor speed forecasts translate into route edge weights and traversal times."""
+    metr_pkl = DATA_DIR / "raw" / "adj_mx_METR-LA.pkl"
+    if not metr_pkl.exists():
+        pytest.skip("METR-LA raw dataset files not present in data/raw/")
     ds = get_dataset(DatasetMode.METR_LA, data_dir=DATA_DIR)
     sensor_ids, adj = ds.get_graph()
 

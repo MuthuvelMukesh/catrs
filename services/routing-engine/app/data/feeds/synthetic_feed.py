@@ -56,6 +56,10 @@ class SyntheticTrafficFeed(DataFeed):
                 timestamp=row["timestamp"],
                 avg_speed=row["avg_speed"],
                 vehicle_count=row["vehicle_count"],
+                source="synthetic_world",
+                is_synthetic=True,
+                confidence_score=1.0,
+                units="km/h",
             )
             for row in rows
         ]

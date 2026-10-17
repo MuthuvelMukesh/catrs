@@ -165,7 +165,7 @@ def route_trip(
         if capacity <= 0:
             continue
 
-        if counter is not None and counter.is_available:
+        if counter is not None:
             if not counter.reserve(
                 route_id=route_id,
                 amount=capacity,
@@ -192,11 +192,20 @@ def route_trip(
     else:
         reason = f"Primary route {top_route_id} received 100% of requested allocation ({request_count} trips)."
 
-    div_info = {
+    counter_mode = getattr(counter, "last_reservation_mode", "unassigned") if counter else "disabled"
+    is_counter_degraded = getattr(counter, "is_degraded", False) if counter else False
+
+    div_info: dict[str, Any] = {
         "applied": diversification_applied,
         "reason": reason,
         "assignment_pool_pct": pool_pct,
+        "counter_mode": counter_mode,
+        "is_degraded": is_counter_degraded,
     }
+    if is_counter_degraded:
+        div_info["consistency_warning"] = (
+            "Process-local fallback active. Global multi-instance consistency is not guaranteed during Redis degradation."
+        )
 
     if return_diversification_info:
         return assignments, div_info

@@ -1,6 +1,6 @@
 # CATRS — Congestion-Aware Traffic Routing System
 
-[![Tests](https://img.shields.io/badge/Tests-149%20passed%2C%201%20skipped-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-168%20passed%2C%205%20skipped-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-teal.svg)]()
 [![PyTorch](https://img.shields.io/badge/PyTorch-ST--GNN-orange.svg)]()
@@ -8,7 +8,19 @@
 [![Redis](https://img.shields.io/badge/Cache-Redis%207-red.svg)]()
 [![Vite](https://img.shields.io/badge/Frontend-Vite%20%2B%20Vanilla%20JS-purple.svg)]()
 
-A three-layer, congestion-aware traffic routing and auditing platform combining spatio-temporal graph neural networks (ST-GNN), priority-weighted equilibrium routing with anti-herding diversification caps, real-time explanation generation, and an independently isolated policy audit service.
+A three-layer, congestion-aware traffic routing and auditing platform combining spatio-temporal graph neural networks (ST-GNN), priority-weighted equilibrium routing with anti-herding diversification caps, real-time explanation generation, realistic road-network graph pathfinding (OSM/Dijkstra/A*), and an independently isolated policy audit service.
+
+---
+
+## Upgrade Documentation
+
+- [System Architecture](docs/ARCHITECTURE.md)
+- [Security Hardening Guide](docs/SECURITY.md)
+- [Deployment & Operations](docs/DEPLOYMENT.md)
+- [Testing & Benchmarks](docs/TESTING.md)
+- [System Audit Report](docs/UPGRADE_AUDIT.md)
+- [ML Pipeline Audit & Model Evaluation](docs/ML_PIPELINE_AUDIT.md)
+- [Upgrade Changelog](docs/UPGRADE_CHANGELOG.md)
 
 ---
 
@@ -653,6 +665,9 @@ All evaluation runs output machine-readable results to `results/{dataset}/`:
 - `multiseed_metrics.json`: Mean ± Standard Deviation across multiple seeds (42, 123, 456, 789, 2026).
 - `ablation.json` and `ablation.csv`: Component and feature ablation matrices.
 
+> [!IMPORTANT]
+> **Model Release Discipline**: In accordance with rigorous ML engineering standards, models must demonstrate reproducible superiority over simple baselines prior to deployment. On the evaluated synthetic distribution, the Persistence baseline achieved MAE 1.70 mph ($R^2 = 0.794$) compared to un-tuned ST-GNN MAE 8.65 mph ($R^2 = -0.036$). The **Persistence baseline is actively retained as the Production Champion** until neural model checkpoints demonstrate verified improvement. Detailed diagnosis is recorded in [ML Pipeline Audit](docs/ML_PIPELINE_AUDIT.md).
+
 ---
 
 ## 14. Testing Guide
@@ -661,15 +676,13 @@ CATRS maintains rigorous automated test suites across all layers.
 
 ### Run All Tests (Root Runner)
 ```bash
-python -m pytest -q
+python -m pytest tests/ services/ -v
 ```
 **Expected Output:**
 ```text
-........................................................................................... [ 60%]
-............................................................s                                [100%]
-149 passed, 1 skipped in 15.07s
+======================= 168 passed, 5 skipped in 17.90s =======================
 ```
-*(1 test is skipped if live Docker containers are not running on the local host network).*
+*(5 tests are skipped if external raw CSV datasets METR-LA and PEMS-BAY are not pre-downloaded).*
 
 ### Run Service-Specific Suites
 ```bash

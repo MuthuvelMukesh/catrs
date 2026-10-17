@@ -1,15 +1,23 @@
+from __future__ import annotations
+
 from datetime import date, datetime
+import logging
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.batch_auditor import BatchAuditor
+from app.config import RunMode, Settings
 from app.metrics import metrics
 from app.policy_verifier import verify_route_outcome
 from app.runtime import RuntimeDependencies, build_runtime_dependencies
+
+logger = logging.getLogger("catrs.audit_service")
+settings = Settings.from_env()
 
 
 class WeightSchedule(BaseModel):
@@ -17,6 +25,7 @@ class WeightSchedule(BaseModel):
 
     version: str = Field(min_length=1)
     effective_date: date
+    expiration_date: date | None = None
     weights: dict[str, float] = Field(default_factory=dict)
 
 
@@ -41,11 +50,41 @@ app = FastAPI(title="Audit Service")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def verify_audit_api_key(api_key: str | None = Security(api_key_header)) -> bool:
+    current_settings = Settings.from_env()
+    if current_settings.api_key:
+        if not api_key or api_key != current_settings.api_key:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key (X-API-Key)")
+    return True
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    logger.error(
+        "Unhandled exception in audit service on %s %s: %s",
+        request.method,
+        request.url.path,
+        str(exc),
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "InternalServerError",
+            "message": "An unexpected error occurred during audit evaluation. Sensitive details have been redacted.",
+        },
+    )
 
 
 @app.get("/health")
@@ -54,13 +93,34 @@ def health(
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
 ) -> dict[str, Any]:
     if full:
+        current_settings = Settings.from_env()
         db_status = (
             "connected"
             if (dependencies is not None and dependencies.database_connection is not None)
-            else "unavailable"
+            else ("unavailable" if current_settings.mode == RunMode.PRODUCTION else "synthetic_memory")
         )
-        return {"status": "ok", "database": db_status}
+        overall_status = "healthy"
+        if current_settings.mode == RunMode.PRODUCTION and db_status == "unavailable":
+            overall_status = "degraded"
+        return {
+            "status": "ok",
+            "operational_status": overall_status,
+            "mode": current_settings.mode.value,
+            "database": db_status,
+            "contract_version": "catrs-policy-contract-v1",
+        }
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready(
+    dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+) -> dict[str, Any]:
+    current_settings = Settings.from_env()
+    if current_settings.mode == RunMode.PRODUCTION:
+        if dependencies is None or dependencies.database_connection is None:
+            raise HTTPException(status_code=503, detail="Audit service database is not connected")
+    return {"status": "ready"}
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
@@ -74,6 +134,7 @@ def audit_outcome(
     outcome: RouteOutcome,
     weight_schedule: WeightSchedule | None = None,
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_audit_api_key),
 ) -> dict[str, Any]:
     if weight_schedule is None:
         if dependencies is None or dependencies.policies is None:
@@ -118,6 +179,7 @@ def audit_outcome(
 def audit_batch(
     request: BatchAuditRequest,
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_audit_api_key),
 ) -> dict[str, Any]:
     """Audit multiple route outcomes in a single request.
 
@@ -167,6 +229,7 @@ def audit_batch(
 def audit_summary(
     request: BatchAuditRequest,
     dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_audit_api_key),
 ) -> dict[str, Any]:
     """Return a compact summary without per-outcome detail."""
     default_schedules = {

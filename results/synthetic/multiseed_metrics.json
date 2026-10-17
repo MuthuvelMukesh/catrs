@@ -6,12 +6,12 @@
     789,
     2026
   ],
-  "mae_mean": 48.756,
-  "mae_std": 0.552,
-  "rmse_mean": 49.891,
-  "rmse_std": 0.537,
-  "mape_mean": 97.42,
-  "mape_std": 1.18,
-  "r2_mean": -21.2494,
-  "r2_std": 0.4764
+  "mae_mean": 7.318,
+  "mae_std": 0.076,
+  "rmse_mean": 10.726,
+  "rmse_std": 0.07,
+  "mape_mean": 19.29,
+  "mape_std": 0.15,
+  "r2_mean": -0.0289,
+  "r2_std": 0.0133
 }

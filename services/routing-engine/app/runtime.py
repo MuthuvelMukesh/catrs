@@ -13,6 +13,7 @@ from app.data.repositories import (
 )
 from app.models.prediction_service import PredictionService
 from app.routing.redis_counter import RedisDiversificationCounter
+from app.routing.route_generator import NetworkRouteService
 
 logger = logging.getLogger("catrs.runtime")
 
@@ -26,6 +27,7 @@ class RuntimeDependencies:
     baseline_repo: HistoricalBaselineRepository | None
     database_connection: Any | None
     config: Settings | None = None
+    network_route_service: NetworkRouteService | None = None
 
 
 def build_runtime_dependencies() -> RuntimeDependencies | None:
@@ -62,6 +64,7 @@ def build_runtime_dependencies() -> RuntimeDependencies | None:
             redis_counter = None
 
     pred_service = PredictionService.from_config(config)
+    route_service = NetworkRouteService()
 
     # Return dependencies if any dependency exists or prediction service is configured
     return RuntimeDependencies(
@@ -72,4 +75,5 @@ def build_runtime_dependencies() -> RuntimeDependencies | None:
         baseline_repo=HistoricalBaselineRepository(db_conn) if db_conn else None,
         database_connection=db_conn,
         config=config,
+        network_route_service=route_service,
     )

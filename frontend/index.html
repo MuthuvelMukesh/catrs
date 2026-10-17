@@ -20,6 +20,7 @@
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:16px;">
+        <span id="header-data-badge" class="badge" style="padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">🟡 Simulation</span>
         <button class="btn btn--secondary btn--sm" id="btn-settings" title="Settings">⚙ Settings</button>
         <div class="header__status">
           <span class="header__status-dot" id="global-status-dot"></span>
@@ -27,6 +28,13 @@
         </div>
       </div>
     </header>
+
+    <div id="degraded-warning-container" style="display:none; margin: 0 var(--space-xl) var(--space-md);">
+      <div class="degraded-banner">
+        <span>⚠️</span>
+        <span id="degraded-warning-text">System operating in degraded mode. Local fallback counter active.</span>
+      </div>
+    </div>
 
     <!-- ═══ Tab Nav ═══ -->
     <nav class="nav" aria-label="Main navigation">
@@ -98,6 +106,14 @@
             <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
               <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Prediction</div>
               <div id="telemetry-horizons" style="font-size: 1.1rem; font-weight: 600; color: #f472b6;">5m / 15m / 30m</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Data Provenance</div>
+              <div id="telemetry-provenance" style="font-size: 0.95rem; font-weight: 600; color: #f59e0b;">Synthetic (Simulated)</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px;">
+              <div style="font-size: 0.75rem; color: #888; text-transform: uppercase;">Predictor Health</div>
+              <div id="telemetry-predictor-health" style="font-size: 0.85rem; font-weight: 500; color: #10b981;">Champion: Persistence</div>
             </div>
           </div>
         </div>
@@ -234,35 +250,265 @@
       <!-- ── Route Panel ── -->
       <section class="tab-panel" id="panel-route">
         <div class="section-header">
-          <h2>Route Ranking</h2>
-          <p>Rank alternative candidate routes with priority weights, diversification caps, and explanation payloads.</p>
+          <h2>Road Network Routing & Diversification</h2>
+          <p>Topological graph pathfinding (A* & Dijkstra), BPR congestion impedance, and rolling diversification caps.</p>
         </div>
 
-        <div class="card">
-          <div class="card__header">
-            <span class="card__title">Route Request</span>
-            <span class="card__icon">🛣️</span>
-          </div>
-          <form id="route-form">
-            <div class="form-grid" style="margin-bottom:var(--space-lg)">
-              <div class="form-group">
-                <label for="route-trip-category">Trip Category</label>
-                <select id="route-trip-category">
-                  <option value="emergency">emergency</option>
-                  <option value="commuter_general" selected>commuter_general</option>
-                  <option value="freight">freight</option>
-                  <option value="transit">transit</option>
-                </select>
+        <!-- Subtab Switcher -->
+        <div class="subtab-buttons">
+          <button type="button" class="subtab-btn active" data-routesubtab="graph-plan" id="btn-routesubtab-graph">🗺️ Physical Road Graph Planner</button>
+          <button type="button" class="subtab-btn" data-routesubtab="manual-corridor" id="btn-routesubtab-manual">📋 Custom Corridor Matrix</button>
+        </div>
+
+        <!-- SUBPANEL 1: Graph Route Planner & Interactive Map -->
+        <div class="route-subpanel" id="route-subpanel-graph">
+          <div class="map-card-wrapper">
+            <!-- Left: Interactive Road Map -->
+            <div class="road-map-container">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">
+                  Topology: Urban Arterials & Expressway Ring
+                </span>
+                <span style="font-size:11px; color:#8892b0;">Click nodes to set Origin / Destination</span>
               </div>
-              <div class="form-group">
-                <label for="route-request-count">Request Count</label>
-                <input type="number" id="route-request-count" value="10" min="1" />
-              </div>
-              <div class="form-group">
-                <label for="route-cap-fraction">Cap Fraction (0–1)</label>
-                <input type="number" id="route-cap-fraction" value="0.7" step="0.05" min="0.01" max="1" />
-              </div>
+              <svg id="road-network-svg" class="road-map-svg" viewBox="0 0 700 400">
+                <defs>
+                  <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <marker id="arrow-corridor" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#00d4ff" />
+                  </marker>
+                </defs>
+
+                <!-- Base Grid Arterials -->
+                <g class="map-edges-base">
+                  <line id="edge-node_nw-node_n" x1="200" y1="110" x2="350" y2="110" class="map-edge arterial" />
+                  <line id="edge-node_n-node_ne" x1="350" y1="110" x2="500" y2="110" class="map-edge arterial" />
+                  <line id="edge-node_w-node_center" x1="200" y1="220" x2="350" y2="220" class="map-edge arterial" />
+                  <line id="edge-node_center-node_e" x1="350" y1="220" x2="500" y2="220" class="map-edge arterial" />
+                  <line id="edge-node_sw-node_s" x1="200" y1="330" x2="350" y2="330" class="map-edge arterial" />
+                  <line id="edge-node_s-node_se" x1="350" y1="330" x2="500" y2="330" class="map-edge arterial" />
+
+                  <line id="edge-node_nw-node_w" x1="200" y1="110" x2="200" y2="220" class="map-edge arterial" />
+                  <line id="edge-node_w-node_sw" x1="200" y1="220" x2="200" y2="330" class="map-edge arterial" />
+                  <line id="edge-node_ne-node_e" x1="500" y1="110" x2="500" y2="220" class="map-edge arterial" />
+                  <line id="edge-node_e-node_se" x1="500" y1="220" x2="500" y2="330" class="map-edge arterial" />
+
+                  <!-- One-way North-South Downtown Corridor -->
+                  <line id="edge-node_n-node_center" x1="350" y1="110" x2="350" y2="220" class="map-edge corridor" marker-end="url(#arrow-corridor)" />
+                  <line id="edge-node_center-node_s" x1="350" y1="220" x2="350" y2="330" class="map-edge corridor" marker-end="url(#arrow-corridor)" />
+
+                  <!-- Highway Bypass Ring -->
+                  <line id="edge-hwy_north-node_nw" x1="350" y1="30" x2="200" y2="110" class="map-edge highway" />
+                  <line id="edge-hwy_north-node_ne" x1="350" y1="30" x2="500" y2="110" class="map-edge highway" />
+                  <line id="edge-hwy_west-node_nw" x1="80" y1="220" x2="200" y2="110" class="map-edge highway" />
+                  <line id="edge-hwy_west-node_sw" x1="80" y1="220" x2="200" y2="330" class="map-edge highway" />
+                  <line id="edge-hwy_east-node_ne" x1="620" y1="220" x2="500" y2="110" class="map-edge highway" />
+                  <line id="edge-hwy_east-node_se" x1="620" y1="220" x2="500" y2="330" class="map-edge highway" />
+                  <line id="edge-hwy_west-hwy_north" x1="80" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
+                  <line id="edge-hwy_east-hwy_north" x1="620" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
+                </g>
+
+                <!-- Dynamic Highlight Path Overlay Layer -->
+                <g id="map-path-overlays"></g>
+
+                <!-- Nodes -->
+                <g class="map-nodes">
+                  <g class="map-node origin" data-node="node_nw" transform="translate(200, 110)">
+                    <circle r="7" />
+                    <text x="0" y="-12" text-anchor="middle">NW</text>
+                  </g>
+                  <g class="map-node" data-node="node_n" transform="translate(350, 110)">
+                    <circle r="7" />
+                    <text x="0" y="-12" text-anchor="middle">N</text>
+                  </g>
+                  <g class="map-node" data-node="node_ne" transform="translate(500, 110)">
+                    <circle r="7" />
+                    <text x="0" y="-12" text-anchor="middle">NE</text>
+                  </g>
+                  <g class="map-node" data-node="node_w" transform="translate(200, 220)">
+                    <circle r="7" />
+                    <text x="-16" y="4" text-anchor="end">W</text>
+                  </g>
+                  <g class="map-node" data-node="node_center" transform="translate(350, 220)">
+                    <circle r="8" />
+                    <text x="0" y="-13" text-anchor="middle">Center</text>
+                  </g>
+                  <g class="map-node" data-node="node_e" transform="translate(500, 220)">
+                    <circle r="7" />
+                    <text x="16" y="4" text-anchor="start">E</text>
+                  </g>
+                  <g class="map-node" data-node="node_sw" transform="translate(200, 330)">
+                    <circle r="7" />
+                    <text x="0" y="20" text-anchor="middle">SW</text>
+                  </g>
+                  <g class="map-node" data-node="node_s" transform="translate(350, 330)">
+                    <circle r="7" />
+                    <text x="0" y="20" text-anchor="middle">S</text>
+                  </g>
+                  <g class="map-node destination" data-node="node_se" transform="translate(500, 330)">
+                    <circle r="7" />
+                    <text x="0" y="20" text-anchor="middle">SE</text>
+                  </g>
+                  <g class="map-node" data-node="hwy_west" transform="translate(80, 220)">
+                    <circle r="6" />
+                    <text x="0" y="18" text-anchor="middle">Hwy-W</text>
+                  </g>
+                  <g class="map-node" data-node="hwy_east" transform="translate(620, 220)">
+                    <circle r="6" />
+                    <text x="0" y="18" text-anchor="middle">Hwy-E</text>
+                  </g>
+                  <g class="map-node" data-node="hwy_north" transform="translate(350, 30)">
+                    <circle r="6" />
+                    <text x="0" y="-10" text-anchor="middle">Hwy-N</text>
+                  </g>
+                </g>
+
+                <!-- Legend -->
+                <g transform="translate(20, 380)">
+                  <line x1="0" y1="0" x2="20" y2="0" stroke="#00ff88" stroke-width="3" />
+                  <text x="26" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Rank 1 (Selected)</text>
+                  <line x1="150" y1="0" x2="170" y2="0" stroke="#00d4ff" stroke-width="2.5" stroke-dasharray="4 2" />
+                  <text x="176" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Rank 2 (Alt)</text>
+                  <line x1="280" y1="0" x2="300" y2="0" stroke="#a855f7" stroke-width="2" stroke-dasharray="3 3" />
+                  <text x="306" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Rank 3 (Alt)</text>
+                  <line x1="410" y1="0" x2="430" y2="0" stroke="#ffb800" stroke-width="3" />
+                  <text x="436" y="4" fill="#94a3b8" font-size="10" font-family="var(--font-mono)">Expressway</text>
+                </g>
+              </svg>
             </div>
+
+            <!-- Right: Controls -->
+            <div class="card" style="padding: 20px;">
+              <div class="card__header" style="margin-bottom: 16px;">
+                <span class="card__title">Plan Graph Trip</span>
+                <span class="card__icon">🎯</span>
+              </div>
+              <form id="graph-plan-form">
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label for="plan-origin">Origin Node</label>
+                  <select id="plan-origin">
+                    <option value="node_nw" selected>North-West (node_nw)</option>
+                    <option value="node_n">North (node_n)</option>
+                    <option value="node_ne">North-East (node_ne)</option>
+                    <option value="node_w">West (node_w)</option>
+                    <option value="node_center">Downtown Center (node_center)</option>
+                    <option value="node_e">East (node_e)</option>
+                    <option value="node_sw">South-West (node_sw)</option>
+                    <option value="node_s">South (node_s)</option>
+                    <option value="node_se">South-East (node_se)</option>
+                    <option value="hwy_west">Highway West (hwy_west)</option>
+                    <option value="hwy_east">Highway East (hwy_east)</option>
+                    <option value="hwy_north">Highway North (hwy_north)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label for="plan-destination">Destination Node</label>
+                  <select id="plan-destination">
+                    <option value="node_nw">North-West (node_nw)</option>
+                    <option value="node_n">North (node_n)</option>
+                    <option value="node_ne">North-East (node_ne)</option>
+                    <option value="node_w">West (node_w)</option>
+                    <option value="node_center">Downtown Center (node_center)</option>
+                    <option value="node_e">East (node_e)</option>
+                    <option value="node_sw">South-West (node_sw)</option>
+                    <option value="node_s">South (node_s)</option>
+                    <option value="node_se" selected>South-East (node_se)</option>
+                    <option value="hwy_west">Highway West (hwy_west)</option>
+                    <option value="hwy_east">Highway East (hwy_east)</option>
+                    <option value="hwy_north">Highway North (hwy_north)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                  <label for="plan-trip-category">Trip Category</label>
+                  <select id="plan-trip-category">
+                    <option value="emergency">emergency (Priority 5x)</option>
+                    <option value="commuter_general" selected>commuter_general</option>
+                    <option value="transit">transit (Priority 3x)</option>
+                    <option value="freight">freight (Priority 2x)</option>
+                  </select>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                  <div class="form-group">
+                    <label for="plan-request-count">Trip Count</label>
+                    <input type="number" id="plan-request-count" value="10" min="1" max="1000" />
+                  </div>
+                  <div class="form-group">
+                    <label for="plan-cap-fraction">Cap Fraction</label>
+                    <input type="number" id="plan-cap-fraction" value="0.5" step="0.05" min="0.1" max="1.0" />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn--primary" id="btn-graph-plan" style="width:100%; margin-top:8px;">
+                  🚀 Plan Physical Routes
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Results for Graph Planner -->
+          <div class="result-panel hidden" id="graph-plan-results" style="margin-top: var(--space-xl);">
+            <!-- Comparison Visual -->
+            <div class="card" style="margin-bottom: var(--space-md);">
+              <div class="card__header">
+                <span class="card__title">Physical Alternative Corridors (A* / Dijkstra)</span>
+                <span class="card__icon">🛣️</span>
+              </div>
+              <div class="ranked-routes" id="graph-paths-visual"></div>
+            </div>
+
+            <!-- Assignments -->
+            <div class="card" style="margin-bottom: var(--space-md);">
+              <div class="card__header">
+                <span class="card__title">Diversified Vehicle Allocation</span>
+                <span class="card__icon">🚦</span>
+              </div>
+              <div class="assignments-bar" id="graph-assignments-bar"></div>
+            </div>
+
+            <!-- Explanation -->
+            <div class="card" style="margin-bottom: var(--space-md);">
+              <div class="card__header">
+                <span class="card__title">Layer 2 Explanation Traceability</span>
+                <span class="card__icon">💡</span>
+              </div>
+              <div class="explanation-grid" id="graph-explanation-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBPANEL 2: Custom Corridor Matrix (Manual) -->
+        <div class="route-subpanel hidden" id="route-subpanel-manual">
+          <div class="card">
+            <div class="card__header">
+              <span class="card__title">Custom Corridor Matrix</span>
+              <span class="card__icon">🛣️</span>
+            </div>
+            <form id="route-form">
+              <div class="form-grid" style="margin-bottom:var(--space-lg)">
+                <div class="form-group">
+                  <label for="route-trip-category">Trip Category</label>
+                  <select id="route-trip-category">
+                    <option value="emergency">emergency</option>
+                    <option value="commuter_general" selected>commuter_general</option>
+                    <option value="freight">freight</option>
+                    <option value="transit">transit</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="route-request-count">Request Count</label>
+                  <input type="number" id="route-request-count" value="10" min="1" />
+                </div>
+                <div class="form-group">
+                  <label for="route-cap-fraction">Cap Fraction (0–1)</label>
+                  <input type="number" id="route-cap-fraction" value="0.7" step="0.05" min="0.01" max="1" />
+                </div>
+              </div>
 
             <!-- Weight Schedule -->
             <div class="card__header"><span class="card__title">Weight Schedule</span></div>
