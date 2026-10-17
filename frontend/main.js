@@ -469,14 +469,76 @@ const NODE_COORDINATES = {
 
 let currentSelectionStage = 'origin';
 
+function updateMapPins() {
+  const pinGroup = document.getElementById('map-pin-overlays');
+  if (!pinGroup) return;
+  pinGroup.innerHTML = '';
+
+  const origin = document.getElementById('plan-origin')?.value;
+  const dest = document.getElementById('plan-destination')?.value;
+
+  if (origin && NODE_COORDINATES[origin]) {
+    const [x, y] = NODE_COORDINATES[origin];
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'map-pin map-pin-origin');
+    g.setAttribute('transform', `translate(${x}, ${y - 20})`);
+    g.innerHTML = `
+      <circle r="11" fill="#10b981" stroke="#ffffff" stroke-width="2" filter="drop-shadow(0 2px 4px rgba(16, 185, 129, 0.45))" />
+      <text x="0" y="4" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="800" font-family="var(--font-sans)">A</text>
+      <path d="M -3 9 L 0 15 L 3 9 Z" fill="#10b981" />
+    `;
+    pinGroup.appendChild(g);
+  }
+
+  if (dest && NODE_COORDINATES[dest]) {
+    const [x, y] = NODE_COORDINATES[dest];
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'map-pin map-pin-dest');
+    g.setAttribute('transform', `translate(${x}, ${y - 20})`);
+    g.innerHTML = `
+      <circle r="11" fill="#ef4444" stroke="#ffffff" stroke-width="2" filter="drop-shadow(0 2px 4px rgba(239, 68, 68, 0.45))" />
+      <text x="0" y="4" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="800" font-family="var(--font-sans)">B</text>
+      <path d="M -3 9 L 0 15 L 3 9 Z" fill="#ef4444" />
+    `;
+    pinGroup.appendChild(g);
+  }
+}
+
 function updateMapNodeHighlights() {
-  const origin = document.getElementById('plan-origin').value;
-  const dest = document.getElementById('plan-destination').value;
+  const origin = document.getElementById('plan-origin')?.value;
+  const dest = document.getElementById('plan-destination')?.value;
   document.querySelectorAll('.map-node').forEach(el => {
     el.classList.remove('origin', 'destination');
     if (el.dataset.node === origin) el.classList.add('origin');
     if (el.dataset.node === dest) el.classList.add('destination');
   });
+  updateMapPins();
+}
+
+// Map Zoom Controls
+let currentMapZoom = 1.0;
+const roadSvg = document.getElementById('road-network-svg');
+
+function setMapZoom(scale) {
+  currentMapZoom = Math.max(0.7, Math.min(2.0, scale));
+  if (roadSvg) {
+    roadSvg.style.transform = `scale(${currentMapZoom})`;
+  }
+}
+
+const btnZoomIn = document.getElementById('btn-map-zoom-in');
+if (btnZoomIn) {
+  btnZoomIn.addEventListener('click', () => setMapZoom(currentMapZoom + 0.2));
+}
+
+const btnZoomOut = document.getElementById('btn-map-zoom-out');
+if (btnZoomOut) {
+  btnZoomOut.addEventListener('click', () => setMapZoom(currentMapZoom - 0.2));
+}
+
+const btnZoomReset = document.getElementById('btn-map-zoom-reset');
+if (btnZoomReset) {
+  btnZoomReset.addEventListener('click', () => setMapZoom(1.0));
 }
 
 document.querySelectorAll('.map-node').forEach(nodeEl => {
@@ -515,6 +577,9 @@ if (btnSwapNodes) {
     }
   });
 }
+
+// Initial pin & node highlight on startup
+updateMapNodeHighlights();
 
 // Route Planner Panel Collapse & Expand
 const btnToggleRoutePanel = document.getElementById('btn-toggle-route-panel');
@@ -567,6 +632,122 @@ function drawPathsOnMap(paths) {
   });
 }
 
+// ── Physical Corridor Names & Turn-by-Turn Navigation ─────────────
+const CORRIDOR_NAMES = {
+  'node_nw-node_n': 'Market Street Arterial (Eastbound)',
+  'node_n-node_ne': 'Upper Market Boulevard (Eastbound)',
+  'node_w-node_center': 'Central Avenue Arterial (Eastbound)',
+  'node_center-node_e': 'Financial District Corridor (Eastbound)',
+  'node_sw-node_s': 'Mission Boulevard (Eastbound)',
+  'node_s-node_se': 'Port Authority Link (Eastbound)',
+  'node_nw-node_w': 'West Commercial Arterial (Southbound)',
+  'node_w-node_sw': 'Transit Hub Way (Southbound)',
+  'node_ne-node_e': 'East Financial Arterial (Southbound)',
+  'node_e-node_se': 'Harbor Industrial Way (Southbound)',
+  'node_n-node_center': 'Downtown Transit Core (One-Way Southbound ⇣)',
+  'node_center-node_s': 'Civic Center Expressway (One-Way Southbound ⇣)',
+  'hwy_north-node_nw': 'Skyline Northwest Ramp',
+  'hwy_north-node_ne': 'Skyline Northeast Ramp',
+  'hwy_west-node_nw': 'Bay Freeway North Link',
+  'hwy_west-node_sw': 'Bay Freeway South Link',
+  'hwy_east-node_ne': 'Port Ring North Link',
+  'hwy_east-node_se': 'Port Ring South Link',
+  'hwy_west-hwy_north': 'Outer Perimeter Expressway',
+  'hwy_east-hwy_north': 'Eastern Ring Interstate',
+};
+
+function getCorridorName(u, v) {
+  const direct = `${u}-${v}`;
+  if (CORRIDOR_NAMES[direct]) return CORRIDOR_NAMES[direct];
+  const reverse = `${v}-${u}`;
+  if (CORRIDOR_NAMES[reverse]) {
+    return CORRIDOR_NAMES[reverse]
+      .replace('(Eastbound)', '(Westbound)')
+      .replace('(Southbound)', '(Northbound)');
+  }
+  return `Arterial ${u.replace('node_', '')} → ${v.replace('node_', '')}`;
+}
+
+function renderTurnByTurnItinerary(route, pathData, rankIdx = 0) {
+  const container = document.getElementById('route-itinerary-container');
+  if (!container) return;
+
+  const nodes = (pathData && pathData.nodes) || route.nodes || [];
+  if (nodes.length < 2) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  const distKm = pathData && pathData.distance_m ? (pathData.distance_m / 1000).toFixed(1) + ' km' : '—';
+  let formattedTime = `${fmt(route.travel_time_s)}s`;
+  if (route.travel_time_s >= 60) {
+    const mins = Math.floor(route.travel_time_s / 60);
+    const secs = Math.round(route.travel_time_s % 60);
+    formattedTime = `${mins} min ${secs > 0 ? `${secs}s` : ''}`;
+  }
+
+  const routeLabel = rankIdx === 0 ? 'Recommended Route' : `Alternative Route #${rankIdx + 1}`;
+
+  let stepsHtml = `
+    <div class="itinerary-header">
+      <div class="itinerary-title">
+        <span>🗺️</span>
+        <span>Turn-by-Turn Corridor Navigation — <strong>${escapeHtml(route.route_id)}</strong></span>
+      </div>
+      <span class="itinerary-summary-badge">${routeLabel} • ${formattedTime} • ${distKm}</span>
+    </div>
+    <div class="itinerary-steps">
+  `;
+
+  // Start step
+  const startNodeName = NODE_TOOLTIP_DATA[nodes[0]] ? NODE_TOOLTIP_DATA[nodes[0]].name : nodes[0];
+  stepsHtml += `
+    <div class="itinerary-step start">
+      <div class="itinerary-step__icon">A</div>
+      <div class="itinerary-step__content">
+        <div class="itinerary-step__title">Depart from <strong>${escapeHtml(startNodeName)}</strong></div>
+        <div class="itinerary-step__meta">Origin vertex: ${escapeHtml(nodes[0])}</div>
+      </div>
+    </div>
+  `;
+
+  // Intermediate hops
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const u = nodes[i];
+    const v = nodes[i + 1];
+    const corridorName = getCorridorName(u, v);
+    const nextNodeInfo = NODE_TOOLTIP_DATA[v] ? NODE_TOOLTIP_DATA[v].name : v;
+    const isLastHop = i === nodes.length - 2;
+    const icon = isLastHop ? '⇣' : (i % 2 === 0 ? '↱' : '↰');
+
+    stepsHtml += `
+      <div class="itinerary-step">
+        <div class="itinerary-step__icon">${icon}</div>
+        <div class="itinerary-step__content">
+          <div class="itinerary-step__title">Proceed via <strong>${escapeHtml(corridorName)}</strong></div>
+          <div class="itinerary-step__meta">Next junction: ${escapeHtml(nextNodeInfo)} (${escapeHtml(v)})</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // End step
+  const endNodeName = NODE_TOOLTIP_DATA[nodes[nodes.length - 1]] ? NODE_TOOLTIP_DATA[nodes[nodes.length - 1]].name : nodes[nodes.length - 1];
+  stepsHtml += `
+    <div class="itinerary-step end">
+      <div class="itinerary-step__icon">B</div>
+      <div class="itinerary-step__content">
+        <div class="itinerary-step__title">Arrive at <strong>${escapeHtml(endNodeName)}</strong></div>
+        <div class="itinerary-step__meta">Destination vertex: ${escapeHtml(nodes[nodes.length - 1])}</div>
+      </div>
+    </div>
+  `;
+
+  stepsHtml += `</div>`;
+  container.innerHTML = stepsHtml;
+  container.classList.remove('hidden');
+}
+
 function renderGraphPlanResults(data) {
   const container = document.getElementById('graph-paths-visual');
   const resultsPanel = document.getElementById('graph-plan-results');
@@ -576,13 +757,22 @@ function renderGraphPlanResults(data) {
   const assignments = data.assignments || {};
   const total = data.total_requests || 1;
 
+  const pathsMap = {};
+  (data.candidate_paths || []).forEach(p => {
+    pathsMap[p.route_id] = p;
+  });
+
   let html = '';
   ranked.forEach((r, idx) => {
     const assigned = assignments[r.route_id] || 0;
     const pct = total > 0 ? Math.round((assigned / total) * 100) : 0;
     const isWinner = idx === 0;
 
-    // Format estimated travel time prominently (e.g. 14.2 min or 852s)
+    const pData = pathsMap[r.route_id] || {};
+    const distance_m = pData.distance_m || r.distance_m;
+    const nodes = pData.nodes || r.nodes;
+
+    // Format estimated travel time prominently
     let formattedTime = `${fmt(r.travel_time_s)}s`;
     if (r.travel_time_s >= 60) {
       const mins = Math.floor(r.travel_time_s / 60);
@@ -590,7 +780,7 @@ function renderGraphPlanResults(data) {
       formattedTime = `${mins} min ${secs > 0 ? `${secs}s` : ''}`;
     }
 
-    // Calculate potential time saved against Rank #2
+    // Time saved calculation
     let timeSavedBadge = '';
     if (isWinner && ranked.length > 1) {
       const diffSec = ranked[1].travel_time_s - r.travel_time_s;
@@ -602,18 +792,19 @@ function renderGraphPlanResults(data) {
 
     // Congestion severity label
     let congestionSeverity = '🟢 Free Flow';
-    if (r.predicted_speed_5m) {
-      if (r.predicted_speed_5m < 25) {
+    const speed = r.predicted_speed_5m || (r.travel_time_s > 0 && distance_m ? (distance_m / r.travel_time_s) * 3.6 : null);
+    if (speed) {
+      if (speed < 25) {
         congestionSeverity = '🔴 Heavy Delay';
-      } else if (r.predicted_speed_5m < 45) {
+      } else if (speed < 45) {
         congestionSeverity = '🟡 Moderate Traffic';
       }
     }
 
-    const distKm = r.distance_m ? `${(r.distance_m / 1000).toFixed(1)} km` : '—';
+    const distKm = distance_m ? `${(distance_m / 1000).toFixed(1)} km` : '—';
 
     html += `
-      <div class="ranked-card ${isWinner ? 'ranked-card--winner' : ''}" data-rank-idx="${idx}">
+      <div class="ranked-card ${isWinner ? 'ranked-card--winner card-active' : ''}" data-rank-idx="${idx}">
         <div class="ranked-card__header">
           <span class="ranked-card__rank-badge" style="color: ${isWinner ? 'var(--primary)' : 'var(--text-muted)'};">
             ${isWinner ? '★ Recommended Route' : `Alternative Route #${idx + 1}`}
@@ -639,16 +830,23 @@ function renderGraphPlanResults(data) {
           </div>
           <div class="ranked-card__metric-item">
             <span class="ranked-card__metric-label">Effective Cost</span>
-            <span class="ranked-card__metric-val">${fmt(r.effective_cost || r.priority_score)}</span>
+            <span class="ranked-card__metric-val">${fmt(r.effective_cost || r.adjusted_score || r.priority_score)}</span>
           </div>
         </div>
-        ${r.nodes ? `<div class="ranked-card__path-nodes" title="${r.nodes.join(' → ')}">Path: ${r.nodes.join(' → ')}</div>` : ''}
+        ${nodes ? `<div class="ranked-card__path-nodes" title="${nodes.join(' → ')}">Path: ${nodes.join(' → ')}</div>` : ''}
       </div>
     `;
   });
   container.innerHTML = html;
 
-  // Add interactive hover synchronization between alternative cards and SVG map paths
+  // Render initial itinerary for the recommended route
+  if (ranked.length > 0) {
+    const winnerRoute = ranked[0];
+    const winnerPath = pathsMap[winnerRoute.route_id] || (data.candidate_paths && data.candidate_paths[0]);
+    renderTurnByTurnItinerary(winnerRoute, winnerPath, 0);
+  }
+
+  // Interactive alternative cards click & hover synchronization
   const cards = container.querySelectorAll('.ranked-card');
   cards.forEach(card => {
     const rank = parseInt(card.dataset.rankIdx, 10);
@@ -673,6 +871,29 @@ function renderGraphPlanResults(data) {
       cards.forEach(c => c.classList.remove('dimmed', 'card-focused'));
       const overlayLines = document.querySelectorAll('#map-path-overlays line');
       overlayLines.forEach(line => line.classList.remove('active-focus', 'dimmed'));
+    });
+
+    card.addEventListener('click', () => {
+      cards.forEach(c => c.classList.remove('card-active'));
+      card.classList.add('card-active');
+
+      const selectedRoute = ranked[rank];
+      const selectedPath = pathsMap[selectedRoute.route_id] || (data.candidate_paths && data.candidate_paths[rank]);
+      if (selectedRoute) {
+        renderTurnByTurnItinerary(selectedRoute, selectedPath, rank);
+      }
+
+      // Re-emphasize this path on the map
+      const overlayLines = document.querySelectorAll('#map-path-overlays line');
+      overlayLines.forEach(line => {
+        if (line.classList.contains(targetClass)) {
+          line.style.opacity = '1';
+          line.style.strokeWidth = '7.5px';
+        } else {
+          line.style.opacity = '0.35';
+          line.style.strokeWidth = '4px';
+        }
+      });
     });
   });
 
@@ -728,16 +949,23 @@ const graphPlanForm = document.getElementById('graph-plan-form');
 if (graphPlanForm) {
   graphPlanForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('btn-graph-plan');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Computing Graph Paths…';
+    const btn = document.getElementById('btn-plan-graph-route') || document.getElementById('btn-graph-plan');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Finding Best Routes…';
+    }
 
     try {
-      const origin = document.getElementById('plan-origin').value;
-      const dest = document.getElementById('plan-destination').value;
-      const tripCat = document.getElementById('plan-trip-category').value;
-      const count = parseInt(document.getElementById('plan-request-count').value, 10) || 1;
-      const cap = parseFloat(document.getElementById('plan-cap-fraction').value) || 1.0;
+      const origin = document.getElementById('plan-origin')?.value || 'node_nw';
+      const dest = document.getElementById('plan-destination')?.value || 'node_se';
+      const catEl = document.getElementById('plan-category') || document.getElementById('plan-trip-category');
+      const tripCat = catEl ? catEl.value : 'commuter_general';
+      const reqEl = document.getElementById('plan-requests') || document.getElementById('plan-request-count');
+      const count = parseInt(reqEl ? reqEl.value : '10', 10) || 10;
+      const capEl = document.getElementById('plan-cap') || document.getElementById('plan-cap-fraction');
+      const cap = parseFloat(capEl ? capEl.value : '0.5') || 0.5;
+      const kEl = document.getElementById('plan-k');
+      const kAlt = parseInt(kEl ? kEl.value : '3', 10) || 3;
 
       const data = await api(routingUrl('/route/plan'), {
         method: 'POST',
@@ -747,18 +975,21 @@ if (graphPlanForm) {
           trip_category: tripCat,
           request_count: count,
           cap_fraction: cap,
-          k_alternatives: 3,
+          k_alternatives: kAlt,
         }),
       });
 
       renderGraphPlanResults(data);
       drawPathsOnMap(data.candidate_paths);
+      updateMapPins();
       showToast(`Calculated ${data.candidate_paths.length} candidate paths from ${origin} to ${dest}`, 'success');
     } catch (err) {
       showToast(`Routing failed: ${err.message}`, 'error');
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '🚀 Plan Physical Routes';
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Find Best Route ➜';
+      }
     }
   });
 }
@@ -810,31 +1041,35 @@ const presetButtons = document.querySelectorAll('.btn--preset');
 presetButtons.forEach(btn => {
   btn.addEventListener('click', () => {
     const preset = btn.dataset.preset;
+    const catEl = document.getElementById('plan-category') || document.getElementById('plan-trip-category');
+    const reqEl = document.getElementById('plan-requests') || document.getElementById('plan-request-count');
+    const capEl = document.getElementById('plan-cap') || document.getElementById('plan-cap-fraction');
+
     if (preset === 'emergency') {
       document.getElementById('plan-origin').value = 'node_nw';
       document.getElementById('plan-destination').value = 'node_se';
-      document.getElementById('plan-trip-category').value = 'emergency';
-      document.getElementById('plan-request-count').value = '5';
-      document.getElementById('plan-cap-fraction').value = '1.0';
+      if (catEl) catEl.value = 'emergency';
+      if (reqEl) reqEl.value = '5';
+      if (capEl) capEl.value = '1.0';
       showToast('Loaded Scenario: 🚑 Emergency Rush (Preemption active)');
     } else if (preset === 'commute') {
       document.getElementById('plan-origin').value = 'node_w';
       document.getElementById('plan-destination').value = 'node_e';
-      document.getElementById('plan-trip-category').value = 'commuter_general';
-      document.getElementById('plan-request-count').value = '60';
-      document.getElementById('plan-cap-fraction').value = '0.35';
+      if (catEl) catEl.value = 'commuter_general';
+      if (reqEl) reqEl.value = '60';
+      if (capEl) capEl.value = '0.35';
       showToast('Loaded Scenario: 🚗 Peak Commute Bottleneck (Diversification active)');
     } else if (preset === 'freight') {
       document.getElementById('plan-origin').value = 'hwy_west';
       document.getElementById('plan-destination').value = 'hwy_east';
-      document.getElementById('plan-trip-category').value = 'freight';
-      document.getElementById('plan-request-count').value = '25';
-      document.getElementById('plan-cap-fraction').value = '0.50';
+      if (catEl) catEl.value = 'freight';
+      if (reqEl) reqEl.value = '25';
+      if (capEl) capEl.value = '0.50';
       showToast('Loaded Scenario: 🚚 Freight Perimeter Bypass');
     }
     updateMapNodeHighlights();
     // Auto-trigger plan calculation
-    const planBtn = document.getElementById('btn-graph-plan');
+    const planBtn = document.getElementById('btn-plan-graph-route') || document.getElementById('btn-graph-plan');
     if (planBtn) planBtn.click();
   });
 });

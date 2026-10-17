@@ -240,6 +240,12 @@
 
                 <div class="road-map-wrapper">
                   <div id="map-tooltip" class="map-tooltip"></div>
+                  <!-- Map Zoom & Recenter Controls -->
+                  <div class="map-zoom-controls">
+                    <button type="button" class="map-zoom-btn" id="btn-map-zoom-in" title="Zoom In (+)" aria-label="Zoom In">+</button>
+                    <button type="button" class="map-zoom-btn" id="btn-map-zoom-out" title="Zoom Out (−)" aria-label="Zoom Out">−</button>
+                    <button type="button" class="map-zoom-btn" id="btn-map-zoom-reset" title="Reset View (⌖)" aria-label="Reset View">⌖</button>
+                  </div>
                   <svg id="road-network-svg" class="road-map-svg" viewBox="0 0 700 400">
                     <defs>
                       <marker id="arrow-corridor" viewBox="0 0 10 10" refX="16" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -276,8 +282,23 @@
                       <line id="edge-hwy_east-hwy_north" x1="620" y1="220" x2="350" y2="30" class="map-edge highway" stroke-dasharray="4 2" />
                     </g>
 
+                    <!-- Street / Corridor Name Annotations -->
+                    <g class="map-road-labels">
+                      <text x="350" y="22" class="map-road-label highway">Skyline Expressway Bypass (North)</text>
+                      <text x="72" y="270" class="map-road-label highway" transform="rotate(-90 72 270)">Bay Freeway (West)</text>
+                      <text x="628" y="170" class="map-road-label highway" transform="rotate(90 628 170)">Port Ring Freeway (East)</text>
+                      <text x="275" y="104" class="map-road-label">Market Street Corridor</text>
+                      <text x="275" y="214" class="map-road-label">Central Boulevard</text>
+                      <text x="275" y="324" class="map-road-label">Mission Parkway</text>
+                      <text x="358" y="170" class="map-road-label vertical">Downtown Core (⇣)</text>
+                      <text x="358" y="280" class="map-road-label vertical">Civic Corridor (⇣)</text>
+                    </g>
+
                     <!-- Dynamic Highlight Path Overlay Layer -->
                     <g id="map-path-overlays"></g>
+
+                    <!-- Dynamic Origin / Destination Pin Overlays -->
+                    <g id="map-pin-overlays"></g>
 
                     <!-- Nodes -->
                     <g class="map-nodes">
@@ -359,6 +380,9 @@
 
               <!-- Compact Comparison Panels (Travel Time Prominent) -->
               <div class="ranked-cards-grid" id="graph-paths-visual"></div>
+
+              <!-- Turn-by-Turn Corridor Navigation Itinerary -->
+              <div class="route-itinerary-card hidden" id="route-itinerary-container"></div>
 
               <!-- Traffic Allocation Bar -->
               <div class="assignments-bar-wrapper">

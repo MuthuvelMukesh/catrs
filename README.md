@@ -596,16 +596,44 @@ curl -X POST "http://localhost:8002/audit/summary" \
 
 ---
 
-## 12. Frontend Dashboard Usage
+## 12. Frontend Navigation & Routing Interface
 
-The frontend dashboard (`frontend/index.html`) is built with modern vanilla CSS and JavaScript, adhering to a responsive, dark-mode glassmorphic design system.
+The CATRS web application (`frontend/index.html`) is built using a **clean, modern light design system** and vanilla CSS/JavaScript, delivering an intuitive, map-first navigation and urban traffic management experience.
 
-### Key Sections:
-1. **Live System Telemetry**: Header displays real-time connection status for both Routing Engine and Audit Service, alongside an explicit indicator showing whether the **ST-GNN Model** or **Heuristic Fallback** is actively powering predictions.
-2. **Prometheus Metrics Stream**: Displays parsed live counters for route requests, predictions, diversification interventions, and policy audit verifications.
-3. **Multi-Horizon Prediction Visualizer**: Interactive parameter controls (speed, volume, weather, incidents) generating dynamic 5m, 15m, and 30m speed forecast horizon bars.
-4. **Priority Route Simulator**: Test route ranking and diversification across multiple candidate corridors with adjustable capacity caps and trip categories. Renders visual traffic assignment breakdowns and the complete Layer 2 explanation payload.
-5. **Audit Service Test Harness**: Single outcome and batch audit verification forms displaying pass/fail badges and detailed failure diagnostic lists.
+### Visual Architecture & Light Theme
+- **Surfaces**: Crisp white cards (`#ffffff`) over a soft slate background (`#f8fafc`) with subtle borders (`#e2e8f0`) and balanced drop shadows.
+- **Typography**: Clean hierarchy with deep navy text (`#0f172a`) and slate secondary copy (`#475569`) powered by Google Fonts (Inter & JetBrains Mono).
+- **Primary Actions**: Sophisticated royal blue (`#2563eb`) with distinct active and focus rings.
+- **Status Semantics**: Standardized green (`#10b981`), amber (`#f59e0b`), and red (`#ef4444`) indicators for flow rates and service health.
+
+### Core Workflows:
+1. **Map-First Route Planning (Primary Workflow)**:
+   - **Origin & Destination Selector**: Dropdown selector with quick location swap (`⇅`), location marker icons, and direct on-map vertex clicking.
+   - **One-Click Scenario Presets**: Pre-configured buttons for **🚑 Emergency Rush** (preemption test), **🚗 Peak Commute Bottleneck** (diversification test), and **🚚 Freight Bypass** (ring freeway test).
+   - **Prominent Action**: Direct `Find Best Route ➜` button calculating multi-path alternatives via `/route/plan`.
+2. **Interactive Road Network Map**:
+   - **Vector Topology**: SVG urban arterial grid, downtown one-way transit corridors, and high-speed expressway bypass ring.
+   - **Zoom & Recenter Controls**: Floating controls (`+`, `−`, `⌖`) supporting smooth scaling up to 200%.
+   - **Street & Corridor Annotations**: Named corridors (e.g. *Skyline Expressway*, *Market Street Corridor*, *Central Boulevard*, *Downtown Core*).
+   - **Dynamic Location Pins**: High-contrast Start (🟢 A) and Finish (🔴 B) markers anchored to selected origin and destination coordinates.
+   - **Active Flow Visualization**: Animated dashed stroke depicting vehicle flow along the recommended path.
+   - **Live Speed Heatmap**: Toggleable congestion overlay visualizing real-time segment speeds.
+3. **Alternative Route Comparison & Navigation Itinerary**:
+   - **Time-Prominent Cards**: Travel time highlighted in bold minutes/seconds, distance in km, congestion severity, and time-saved badges against alternatives.
+   - **Interactive Selection**: Clicking an alternative route focuses the path on the road map and updates the navigation itinerary.
+   - **Turn-by-Turn Corridor Navigation**: Step-by-step corridor directions from departure vertex to destination with maneuver icons and junction markers.
+   - **Capacity Allocation Bar**: Color-coded rolling volume distribution across available corridors.
+   - **Layer 2 Decision Audit**: Audit trail card explaining priority weights, capacity capping, and atomic routing guarantees.
+4. **Live System Telemetry & ML Model Drift**:
+   - Real-time connection indicators for Routing Engine (port 8001) and Policy Audit Service (port 8002).
+   - Spatial-Temporal Graph Neural Network (ST-GNN) vs. Heuristic status badge.
+   - Live PSI / KS-test drift calibration metrics with automatic retraining alerts.
+5. **Multi-Horizon Speed Forecasting**:
+   - Multi-parameter simulator (current speed, volume, historical baseline, weather, incident flags).
+   - Generates 5-minute, 15-minute, and 30-minute speed forecasts.
+6. **Policy Audit Test Harness**:
+   - Single-outcome verification with detailed rule violation diagnostics.
+   - Bulk batch evaluation and audit summary metrics.
 
 ---
 
