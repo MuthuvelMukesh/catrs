@@ -64,6 +64,14 @@ class RedisDiversificationCounter:
         except Exception:
             return False
 
+    def _build_keys(self, route_id: str) -> tuple[str, str]:
+        # Using Redis cluster hash tags {...} guarantees all route counter keys
+        # for this prefix map to the identical hash slot, preventing CROSSSLOT errors.
+        cluster_tag = f"{{{self._key_prefix}}}"
+        route_key = f"{cluster_tag}:route:{route_id}:assignments"
+        sequence_key = f"{cluster_tag}:route:{route_id}:sequence"
+        return route_key, sequence_key
+
     def reserve(
         self,
         *,
@@ -71,13 +79,20 @@ class RedisDiversificationCounter:
         amount: int,
         limit: int,
         window_seconds: int,
+        travel_time_s: float | None = None,
         now: datetime | None = None,
     ) -> bool:
         if amount < 1 or limit < 1 or amount > limit:
             return False
         timestamp = (now or datetime.now(timezone.utc)).timestamp()
-        route_key = f"{self._key_prefix}:route:{route_id}:assignments"
-        sequence_key = f"{route_key}:sequence"
+        route_key, sequence_key = self._build_keys(route_id)
+
+        # Dynamic travel-time proportional eviction:
+        # short corridors evict faster, prolonged congestion maintains reservations.
+        if travel_time_s is not None and travel_time_s > 0:
+            effective_window = max(30, min(1800, int(float(travel_time_s) * 1.25)))
+        else:
+            effective_window = max(1, int(window_seconds))
 
         if self.is_available:
             try:
@@ -89,7 +104,7 @@ class RedisDiversificationCounter:
                     timestamp,
                     amount,
                     limit,
-                    window_seconds,
+                    effective_window,
                 )
                 self.is_degraded = False
                 self.last_reservation_mode = "redis_atomic"
@@ -105,7 +120,7 @@ class RedisDiversificationCounter:
         self.is_degraded = True
         self.last_reservation_mode = "degraded_process_local"
         with self._local_lock:
-            cutoff = timestamp - window_seconds
+            cutoff = timestamp - effective_window
             existing = [t for t in self._local_assignments.get(route_id, []) if t > cutoff]
             if len(existing) + amount > limit:
                 self._local_assignments[route_id] = existing
@@ -116,7 +131,7 @@ class RedisDiversificationCounter:
 
     def count(self, *, route_id: str, window_seconds: int, now: datetime | None = None) -> int:
         timestamp = (now or datetime.now(timezone.utc)).timestamp()
-        route_key = f"{self._key_prefix}:route:{route_id}:assignments"
+        route_key, _ = self._build_keys(route_id)
         if self.is_available:
             try:
                 self._redis.zremrangebyscore(route_key, "-inf", timestamp - window_seconds)

@@ -171,6 +171,7 @@ def route_trip(
                 amount=capacity,
                 limit=max_cap,
                 window_seconds=window_seconds,
+                travel_time_s=route.get("travel_time_s"),
             ):
                 continue
 

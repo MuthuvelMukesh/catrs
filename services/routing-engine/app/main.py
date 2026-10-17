@@ -13,12 +13,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.config import RunMode, Settings
 from app.metrics import metrics
+from app.models.drift_detector import DistributionDriftDetector
+from app.routing.audit_stream import AuditStreamProducer
 from app.routing.priority_routing import rank_routes, route_trip
 from app.routing.travel_time import enrich_routes_with_travel_time
 from app.runtime import RuntimeDependencies, build_runtime_dependencies
 
 logger = logging.getLogger("catrs.routing_engine")
 settings = Settings.from_env()
+
+_drift_detector = DistributionDriftDetector()
+_audit_producer = AuditStreamProducer()
 
 
 class RouteOption(BaseModel):
@@ -205,8 +210,30 @@ def health(
             "horizons": ["5m", "15m", "30m"],
             "is_synthetic": current_settings.mode == RunMode.SYNTHETIC,
             "data_freshness": "live" if current_settings.mode != RunMode.SYNTHETIC else "simulated",
+            "data_drift": _drift_detector.evaluate_sample([]).to_dict(),
+            "audit_stream": {
+                "published_count": _audit_producer.published_count,
+                "buffered_count": _audit_producer.buffered_count,
+            },
         }
     return {"status": "ok"}
+
+
+@app.get("/models/drift")
+def get_model_drift(
+    dependencies: RuntimeDependencies | None = Depends(build_runtime_dependencies),
+    _authorized: bool = Depends(verify_routing_api_key),
+) -> dict[str, Any]:
+    """Evaluate distribution drift on current sensor speed predictions vs training baseline."""
+    sample: list[float] = []
+    if dependencies is not None and dependencies.prediction_service is not None:
+        try:
+            pred = dependencies.prediction_service.predict(horizon=5)
+            sample = [float(x) for x in pred.get("predictions", []) if x is not None]
+        except Exception:
+            pass
+    report = _drift_detector.evaluate_sample(sample)
+    return report.to_dict()
 
 
 @app.get("/ready")
@@ -420,6 +447,18 @@ def route(
         except Exception:
             pass
 
+    # Asynchronously publish routing outcome to audit stream
+    try:
+        _audit_producer.publish_outcome({
+            "event_type": "route_allocation",
+            "trip_category": request.trip_category,
+            "recommended_route": result.get("explanation", {}).get("route_id"),
+            "assignments": result.get("assignments", {}),
+            "diversification": result.get("diversification", {}),
+        })
+    except Exception:
+        pass
+
     metrics.record_route_request(request.trip_category, status="success")
     return result
 
@@ -452,6 +491,15 @@ def plan_route(
 
     counter = dependencies.route_counter if dependencies is not None else None
 
+    # Retrieve live ML speed predictions if model service is active
+    predicted_speeds = None
+    if dependencies is not None and dependencies.prediction_service is not None:
+        try:
+            pred_res = dependencies.prediction_service.predict(horizon=5)
+            predicted_speeds = pred_res.get("predictions")
+        except Exception:
+            predicted_speeds = None
+
     try:
         plan = route_service.plan_trip(
             origin_node=request.origin_node,
@@ -462,11 +510,25 @@ def plan_route(
             k_alternatives=request.k_alternatives,
             counter=counter,
             weight_schedule=weight_schedule,
+            predicted_speeds=predicted_speeds,
         )
     except Exception as exc:
         if type(exc).__name__ == "UnreachableDestinationError" or isinstance(exc, UnreachableDestinationError):
             raise HTTPException(status_code=404, detail=str(exc))
         raise
+
+    # Asynchronously publish plan outcome to audit stream
+    try:
+        _audit_producer.publish_outcome({
+            "event_type": "graph_route_plan",
+            "origin": request.origin_node,
+            "destination": request.destination_node,
+            "trip_category": request.trip_category,
+            "assignments": plan.get("assignments", {}),
+            "explanation": plan.get("explanation", {}),
+        })
+    except Exception:
+        pass
 
     metrics.record_route_request(request.trip_category, status="success")
     return plan

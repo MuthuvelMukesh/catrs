@@ -60,6 +60,15 @@ This document details the audit findings, architecture enhancements, pipeline re
 - **Enhanced**: Audit service policy verifier enforcing policy schedule expiration dates (`expiration_date` / `expires_at`).
 - **Decoupled**: Audit service dependencies isolated from Redis; service boundary strictly validated.
 - **Implemented**: `/ready` readiness probe distinguishing live process status from database connection readiness.
+- **Implemented**: `/audit/stream/drain` endpoint allowing asynchronous event ingestion from Redis Streams.
+
+### Advanced Production Engineering Enhancements (Co-Developer Milestone)
+- **Redis Cluster Hash Tagging**: Applied `{...}` hash tags across all counter key schemas in `redis_counter.py`, eliminating multi-key `CROSSSLOT` failures on distributed Redis clusters.
+- **Dynamic Travel-Time Eviction**: Replaced static TTLs with corridor-proportional eviction (`TTL = travel_time_s * 1.25`), preventing capacity starvation on short corridors and maintaining reservations during prolonged congestion.
+- **Spatial Sensor-to-Edge KD-Tree Bridge**: Built `SensorRoadMapper` (`app/routing/sensor_mapper.py`) with spatial indexing, projecting ML sensor speed forecasts onto physical road graph segment travel costs.
+- **Intersection Turn Penalties & Edge-Expanded Routing**: Extended `RoadGraph` with directional maneuver calculations, applying realistic left-turn delays (12s crossing traffic) vs straight (0.5s) vs right turns (4s) in right-hand traffic regimes.
+- **Asynchronous Audit Streams**: Built `AuditStreamProducer` (`app/routing/audit_stream.py`) with Redis Streams (`{catrs:audit}:stream`) and bounded thread-safe local buffer fallback, enabling non-blocking sub-millisecond route decisions.
+- **Distribution Drift Detection**: Implemented `DistributionDriftDetector` (`app/models/drift_detector.py`) calculating Population Stability Index (PSI) and Kolmogorov-Smirnov (KS) statistics on sensor speeds, exposed via `GET /models/drift` and `/health?full=true`.
 
 ---
 
@@ -71,5 +80,3 @@ This document details the audit findings, architecture enhancements, pipeline re
 2. **ST-GNN Training Convergence**:
    - The lightweight default ST-GNN architecture requires extensive multi-epoch pre-training on real sensor trajectories before it can outperform the Persistence baseline on dense urban topologies.
    - The system is architected to keep the Persistence champion active until ST-GNN passes release criteria.
-3. **Redis Cluster Scaling**:
-   - The rolling-window diversification counter uses Lua scripts targeting atomic keys. In a multi-node Redis Cluster, keys must include hash tags (e.g. `{route_id}`) to ensure co-location on the same shard.

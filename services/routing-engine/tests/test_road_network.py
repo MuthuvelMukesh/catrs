@@ -137,3 +137,26 @@ def test_network_route_service_end_to_end():
     assert sum(result["assignments"].values()) == 10
     assert "explanation" in result
     assert result["explanation"]["recommended_route"]["route_id"] == result["ranked_routes"][0]["route_id"]
+
+
+def test_turn_penalties_differentiate_turns():
+    """Verify that left turns incur realistic intersection delays compared to straight passage."""
+    graph = RoadGraph("turn_penalty_test")
+    # Geometry:
+    # W (-1, 0) -> C (0, 0) -> E (1, 0) is straight (0 deg)
+    # W (-1, 0) -> C (0, 0) -> N (0, 1) is a left turn (90 deg counter-clockwise)
+    graph.add_node("W", lat=0.0, lon=-1.0)
+    graph.add_node("C", lat=0.0, lon=0.0)
+    graph.add_node("E", lat=0.0, lon=1.0)
+    graph.add_node("N", lat=1.0, lon=0.0)
+
+    graph.add_segment("seg_W_C", "W", "C", length_m=1000.0, speed_limit_kmh=60.0, one_way=True)
+    graph.add_segment("seg_C_E", "C", "E", length_m=1000.0, speed_limit_kmh=60.0, one_way=True)
+    graph.add_segment("seg_C_N", "C", "N", length_m=1000.0, speed_limit_kmh=60.0, one_way=True)
+
+    straight_penalty = graph.compute_turn_penalty_seconds("seg_W_C", "C", "seg_C_E")
+    left_turn_penalty = graph.compute_turn_penalty_seconds("seg_W_C", "C", "seg_C_N")
+
+    assert straight_penalty == pytest.approx(0.5)
+    assert left_turn_penalty > straight_penalty  # Left turn has higher delay
+    assert left_turn_penalty >= 10.0

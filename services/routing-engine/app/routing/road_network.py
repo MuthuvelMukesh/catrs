@@ -270,6 +270,52 @@ class RoadGraph:
             heuristic=heuristic,
         )
 
+    def compute_turn_penalty_seconds(
+        self,
+        prev_seg_id: str | None,
+        current_node: str,
+        next_seg_id: str,
+    ) -> float:
+        """Compute realistic intersection turn delay based on maneuver angle."""
+        if not prev_seg_id or prev_seg_id not in self.segments or next_seg_id not in self.segments:
+            return 0.0
+
+        prev_seg = self.segments[prev_seg_id]
+        next_seg = self.segments[next_seg_id]
+
+        p_node = self.nodes.get(prev_seg.from_node)
+        u_node = self.nodes.get(current_node)
+        v_node = self.nodes.get(next_seg.to_node)
+
+        if not p_node or not u_node or not v_node:
+            return 0.0
+
+        dx1 = u_node.lon - p_node.lon
+        dy1 = u_node.lat - p_node.lat
+        dx2 = v_node.lon - u_node.lon
+        dy2 = v_node.lat - u_node.lat
+
+        if (dx1 == 0 and dy1 == 0) or (dx2 == 0 and dy2 == 0):
+            return 0.0
+
+        angle1 = math.degrees(math.atan2(dy1, dx1))
+        angle2 = math.degrees(math.atan2(dy2, dx2))
+        d_angle = (angle2 - angle1 + 180.0) % 360.0 - 180.0
+
+        # Straight maneuver (-30 deg to +30 deg): nominal signal passage delay
+        if abs(d_angle) <= 30.0:
+            return 0.5
+        # Left turn (+30 deg to +120 deg): crossing oncoming traffic lane delay (in right-hand drive)
+        if 30.0 < d_angle <= 120.0:
+            return 12.0
+        # Right turn (-120 deg to -30 deg): yield/deceleration delay
+        if -120.0 <= d_angle < -30.0:
+            return 4.0
+        # U-turn (> 150 deg): major intersection maneuver
+        if abs(d_angle) > 150.0:
+            return 25.0
+        return 6.0
+
     def _dijkstra(
         self,
         origin: str,
@@ -277,6 +323,7 @@ class RoadGraph:
         vehicle_type: str,
         avoid_segments: set[str],
         heuristic: Callable[[str], float] | None = None,
+        enable_turn_penalties: bool = True,
     ) -> PathResult:
         if origin not in self.nodes:
             raise UnreachableDestinationError(f"Origin node {origin!r} does not exist in graph")
@@ -296,25 +343,32 @@ class RoadGraph:
 
         # Priority queue item: (f_score, g_score, current_node, previous_segment_id)
         pq: list[tuple[float, float, str, str | None]] = [(0.0, 0.0, origin, None)]
-        # Track best costs and predecessors
-        g_scores: dict[str, float] = {origin: 0.0}
-        came_from: dict[str, tuple[str, str]] = {}  # node -> (predecessor_node, segment_id)
+        # Edge-expanded state tracking: (node_id, incoming_seg_id) -> best_g
+        g_scores: dict[tuple[str, str | None], float] = {(origin, None): 0.0}
+        # Predecessor map: (node_id, incoming_seg_id) -> (predecessor_node, predecessor_incoming_seg)
+        came_from: dict[tuple[str, str | None], tuple[str, str | None]] = {}
 
         while pq:
             f, g, u, prev_seg = heapq.heappop(pq)
 
             if u == destination:
-                # Reconstruct path
+                # Reconstruct path by tracing predecessor states
                 nodes = [destination]
                 segments = []
                 total_dist = 0.0
-                curr = destination
-                while curr in came_from:
-                    p_node, seg_id = came_from[curr]
-                    segments.append(seg_id)
+                curr_node = destination
+                curr_seg = prev_seg
+
+                while curr_seg is not None:
+                    segments.append(curr_seg)
+                    total_dist += self.segments[curr_seg].length_m
+                    p_state = came_from.get((curr_node, curr_seg))
+                    if not p_state:
+                        break
+                    p_node, p_prev_seg = p_state
                     nodes.append(p_node)
-                    total_dist += self.segments[seg_id].length_m
-                    curr = p_node
+                    curr_node = p_node
+                    curr_seg = p_prev_seg
 
                 nodes.reverse()
                 segments.reverse()
@@ -328,7 +382,7 @@ class RoadGraph:
                     total_travel_time_s=round(g, 2),
                 )
 
-            if g > g_scores.get(u, float("inf")):
+            if g > g_scores.get((u, prev_seg), float("inf")):
                 continue
 
             for seg_id in self._adj_out.get(u, []):
@@ -341,17 +395,23 @@ class RoadGraph:
                     continue
                 if vehicle_type not in seg.access_restrictions:
                     continue
-                # Check turn restriction
+                # Check prohibited turn restrictions
                 if prev_seg is not None and (prev_seg, u, seg_id) in self.turn_restrictions:
                     continue
 
                 v = seg.to_node
-                weight = seg.compute_travel_time_seconds()
-                new_g = g + weight
+                base_time = seg.compute_travel_time_seconds()
+                turn_delay = (
+                    self.compute_turn_penalty_seconds(prev_seg, u, seg_id)
+                    if (enable_turn_penalties and vehicle_type != "emergency")
+                    else 0.0
+                )
+                new_g = g + base_time + turn_delay
 
-                if new_g < g_scores.get(v, float("inf")):
-                    g_scores[v] = new_g
-                    came_from[v] = (u, seg_id)
+                state = (v, seg_id)
+                if new_g < g_scores.get(state, float("inf")):
+                    g_scores[state] = new_g
+                    came_from[state] = (u, prev_seg)
                     h = heuristic(v) if heuristic else 0.0
                     heapq.heappush(pq, (new_g + h, new_g, v, seg_id))
 
@@ -392,9 +452,58 @@ class RoadGraph:
                     if len(p.segments) > j and p.segments[:j] == root_path_segments:
                         avoid.add(p.segments[j])
 
-                # Root path distance & travel time
-                root_dist = sum(self.segments[s].length_m for s in root_path_segments)
-                root_time = sum(self.segments[s].compute_travel_time_seconds() for s in root_path_segments)
+    def compute_path_travel_time(
+        self,
+        segments: list[str],
+        vehicle_type: str = "car",
+    ) -> tuple[float, float]:
+        """Compute exact cumulative distance and travel time including all turn penalties."""
+        dist = 0.0
+        time_s = 0.0
+        for idx, seg_id in enumerate(segments):
+            seg = self.segments[seg_id]
+            dist += seg.length_m
+            p_seg = segments[idx - 1] if idx > 0 else None
+            turn_delay = (
+                self.compute_turn_penalty_seconds(p_seg, seg.from_node, seg_id)
+                if vehicle_type != "emergency"
+                else 0.0
+            )
+            time_s += seg.compute_travel_time_seconds() + turn_delay
+        return round(dist, 2), round(time_s, 2)
+
+    def find_k_alternative_routes(
+        self,
+        origin: str,
+        destination: str,
+        k: int = 3,
+        vehicle_type: str = "car",
+    ) -> list[PathResult]:
+        """Generate up to K viable alternative routes using Yen's algorithm."""
+        if k < 1:
+            return []
+
+        try:
+            first_path = self.find_shortest_path_astar(origin, destination, vehicle_type=vehicle_type)
+        except UnreachableDestinationError:
+            return []
+
+        paths = [first_path]
+        candidates: list[PathResult] = []
+        candidate_signatures: set[tuple[str, ...]] = {tuple(first_path.segments)}
+
+        for i in range(1, k):
+            prev_path = paths[i - 1]
+            for j in range(len(prev_path.segments)):
+                spur_node = prev_path.nodes[j]
+                root_path_nodes = prev_path.nodes[: j + 1]
+                root_path_segments = prev_path.segments[:j]
+
+                # Segments to temporarily avoid
+                avoid: set[str] = set()
+                for p in paths:
+                    if len(p.segments) > j and p.segments[:j] == root_path_segments:
+                        avoid.add(p.segments[j])
 
                 try:
                     spur_path = self._dijkstra(
@@ -409,14 +518,15 @@ class RoadGraph:
 
                     if sig not in candidate_signatures:
                         candidate_signatures.add(sig)
+                        calc_dist, calc_time = self.compute_path_travel_time(total_segs, vehicle_type=vehicle_type)
                         cand = PathResult(
                             origin=origin,
                             destination=destination,
                             route_id=f"alt_route_{i}_{len(candidates)+1}",
                             nodes=total_nodes,
                             segments=total_segs,
-                            total_distance_m=round(root_dist + spur_path.total_distance_m, 2),
-                            total_travel_time_s=round(root_time + spur_path.total_travel_time_s, 2),
+                            total_distance_m=calc_dist,
+                            total_travel_time_s=calc_time,
                         )
                         candidates.append(cand)
                 except UnreachableDestinationError:
@@ -427,4 +537,6 @@ class RoadGraph:
             candidates.sort(key=lambda p: p.total_travel_time_s)
             paths.append(candidates.pop(0))
 
+        # Guarantee non-decreasing travel times across candidate routes
+        paths.sort(key=lambda p: p.total_travel_time_s)
         return paths

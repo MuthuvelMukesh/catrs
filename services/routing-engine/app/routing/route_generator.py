@@ -7,13 +7,21 @@ import math
 from app.routing.osm_adapter import OSMAdapter
 from app.routing.priority_routing import rank_routes, route_trip
 from app.routing.road_network import PathResult, RoadGraph, UnreachableDestinationError
+from app.routing.sensor_mapper import SensorRoadMapper
 
 
 class NetworkRouteService:
     """End-to-end routing service operating on a topological RoadGraph."""
 
-    def __init__(self, graph: RoadGraph | None = None) -> None:
+    def __init__(
+        self,
+        graph: RoadGraph | None = None,
+        sensor_mapper: SensorRoadMapper | None = None,
+    ) -> None:
         self.graph = graph or OSMAdapter.create_sample_urban_network()
+        self.sensor_mapper = sensor_mapper or SensorRoadMapper()
+        # Pre-bind graph segments to sensor stations
+        self.sensor_mapper.bind_graph(self.graph)
 
     def plan_trip(
         self,
@@ -27,12 +35,17 @@ class NetworkRouteService:
         counter: Any | None = None,
         weight_schedule: dict[str, Any] | None = None,
         current_counts: dict[str, int] | None = None,
+        predicted_speeds: dict[str, float] | list[float] | None = None,
     ) -> dict[str, Any]:
         """Find candidate routes across the physical network and allocate trips with diversification.
 
         Raises:
             UnreachableDestinationError: If no path connects origin and destination.
         """
+        # Dynamically inject ML speed forecasts into physical graph links
+        if predicted_speeds is not None:
+            self.sensor_mapper.apply_predicted_speeds(self.graph, predicted_speeds)
+
         vehicle_type = "emergency" if trip_category == "emergency" else "car"
         paths: list[PathResult] = self.graph.find_k_alternative_routes(
             origin=origin_node,
