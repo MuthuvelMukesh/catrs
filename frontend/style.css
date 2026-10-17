@@ -1198,3 +1198,106 @@ body::before {
   color: #fbbf24;
   font-size: 13px;
 }
+
+/* ── Interactive Floating Tooltip ────────────────────────────── */
+.road-map-container {
+  position: relative;
+}
+
+.map-tooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  z-index: 100;
+  background: rgba(10, 14, 39, 0.94);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 212, 255, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-primary);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+  font-family: var(--font-mono);
+  transition: opacity 0.12s ease-out;
+  line-height: 1.5;
+}
+
+/* ── Route Card & Map Path Synchronization ──────────────────── */
+.ranked-card {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ranked-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ranked-card.card-focused {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.45) !important;
+  background: rgba(0, 212, 255, 0.06);
+}
+
+.ranked-card.dimmed {
+  opacity: 0.35;
+  filter: grayscale(40%);
+}
+
+.map-edge.path-highlight-1.active-focus,
+.map-edge.path-highlight-2.active-focus,
+.map-edge.path-highlight-3.active-focus {
+  stroke-width: 7 !important;
+  filter: drop-shadow(0 0 14px currentColor) !important;
+  opacity: 1 !important;
+}
+
+.map-edge.path-highlight-1.dimmed,
+.map-edge.path-highlight-2.dimmed,
+.map-edge.path-highlight-3.dimmed {
+  opacity: 0.12 !important;
+  filter: none !important;
+}
+
+/* ── Live Congestion Heatmap ────────────────────────────────── */
+.map-edge.congestion-free {
+  stroke: #10b981 !important;
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));
+}
+
+.map-edge.congestion-moderate {
+  stroke: #f59e0b !important;
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
+}
+
+.map-edge.congestion-heavy {
+  stroke: #ef4444 !important;
+  stroke-width: 4 !important;
+  stroke-dasharray: 6 3;
+  animation: chokePulse 1.8s infinite;
+}
+
+@keyframes chokePulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; stroke-width: 4.8px; filter: drop-shadow(0 0 8px #ef4444); }
+  100% { opacity: 0.7; }
+}
+
+/* ── Scenario Presets Buttons ───────────────────────────────── */
+.btn--preset {
+  transition: all 0.15s ease;
+  font-weight: 600;
+}
+
+.btn--preset:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.btn--preset:active {
+  transform: translateY(0);
+}

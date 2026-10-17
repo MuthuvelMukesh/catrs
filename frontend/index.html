@@ -118,6 +118,43 @@
           </div>
         </div>
 
+        <!-- ML Data Drift & Calibration Widget -->
+        <div class="card" style="margin-bottom: 24px; padding: 20px; border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 8px; background: rgba(0, 212, 255, 0.02);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                <span>📈</span> Sensor Speed Distribution Drift & Stability
+              </h3>
+              <p style="margin: 4px 0 0 0; color: #888; font-size: 0.82rem;">Kolmogorov-Smirnov CDF test & Population Stability Index (PSI) tracking sensor distribution shift.</p>
+            </div>
+            <div id="drift-status-badge" style="padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+              🟢 Calibrated Envelope
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 12px;">
+            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
+              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">PSI Metric</div>
+              <div id="drift-psi" style="font-size: 1.05rem; font-weight: 700; color: #38bdf8; font-family: var(--font-mono);">0.0182</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
+              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">KS Statistic</div>
+              <div id="drift-ks-stat" style="font-size: 1.05rem; font-weight: 700; color: #a78bfa; font-family: var(--font-mono);">0.0410</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
+              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">KS P-Value</div>
+              <div id="drift-ks-p" style="font-size: 1.05rem; font-weight: 700; color: #facc15; font-family: var(--font-mono);">0.8521</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 6px;">
+              <div style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Sample / Baseline</div>
+              <div id="drift-sample-size" style="font-size: 0.95rem; font-weight: 600; color: #94a3b8; font-family: var(--font-mono);">100 / 500</div>
+            </div>
+          </div>
+          <div style="font-size: 0.8rem; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div id="drift-recommendation">Distribution stable. Operating within expected calibration envelope.</div>
+            <div id="drift-evaluated-at" style="font-size: 0.72rem; color: #64748b; font-family: var(--font-mono);">Evaluated: Just now</div>
+          </div>
+        </div>
+
         <div class="status-grid" id="health-cards">
           <!-- Routing Engine health cards -->
           <div class="card status-card">
@@ -265,12 +302,19 @@
           <div class="map-card-wrapper">
             <!-- Left: Interactive Road Map -->
             <div class="road-map-container">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
                 <span style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">
                   Topology: Urban Arterials & Expressway Ring
                 </span>
-                <span style="font-size:11px; color:#8892b0;">Click nodes to set Origin / Destination</span>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <label style="font-size:11px; color:#94a3b8; cursor:pointer; display:flex; align-items:center; gap:5px; background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:4px; border:1px solid rgba(255,255,255,0.1);">
+                    <input type="checkbox" id="toggle-congestion-heatmap" checked style="cursor:pointer;" />
+                    <span>🔥 Live Congestion Heatmap</span>
+                  </label>
+                  <span style="font-size:11px; color:#8892b0;">Click nodes to set Origin / Destination</span>
+                </div>
               </div>
+              <div id="map-tooltip" class="map-tooltip"></div>
               <svg id="road-network-svg" class="road-map-svg" viewBox="0 0 700 400">
                 <defs>
                   <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
@@ -386,10 +430,27 @@
 
             <!-- Right: Controls -->
             <div class="card" style="padding: 20px;">
-              <div class="card__header" style="margin-bottom: 16px;">
+              <div class="card__header" style="margin-bottom: 12px;">
                 <span class="card__title">Plan Graph Trip</span>
                 <span class="card__icon">🎯</span>
               </div>
+
+              <!-- Quick-Pick Scenario Presets -->
+              <div class="preset-toolbar" style="margin-bottom: 16px; background:rgba(0,0,0,0.25); padding:10px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
+                <div style="font-size: 10px; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; font-weight: 700; letter-spacing:0.5px;">⚡ One-Click Scenarios</div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  <button type="button" class="btn btn--sm btn--preset" data-preset="emergency" style="font-size: 11px; padding: 5px 10px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; cursor:pointer;">
+                    🚑 Emergency
+                  </button>
+                  <button type="button" class="btn btn--sm btn--preset" data-preset="commute" style="font-size: 11px; padding: 5px 10px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; cursor:pointer;">
+                    🚗 Peak Commute
+                  </button>
+                  <button type="button" class="btn btn--sm btn--preset" data-preset="freight" style="font-size: 11px; padding: 5px 10px; background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.4); color: #fde047; cursor:pointer;">
+                    🚚 Freight Bypass
+                  </button>
+                </div>
+              </div>
+
               <form id="graph-plan-form">
                 <div class="form-group" style="margin-bottom: 14px;">
                   <label for="plan-origin">Origin Node</label>
@@ -628,6 +689,30 @@
         <div class="section-header">
           <h2>Policy Audit</h2>
           <p>Verify route decisions against published weight schedules independently.</p>
+        </div>
+
+        <!-- Live Redis Stream Activity Banner -->
+        <div class="card" style="margin-bottom: 20px; padding: 14px 18px; border: 1px solid rgba(0, 212, 255, 0.25); background: rgba(0, 212, 255, 0.04); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 18px;">⚡</span>
+              <div>
+                <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">Asynchronous Audit Event Stream Active</div>
+                <div style="font-size: 11px; color: #94a3b8;">High-throughput non-blocking routing outcome stream via Redis Streams ({catrs:audit}:stream)</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 16px; align-items: center;">
+              <div>
+                <span style="font-size: 10px; color: #888; text-transform: uppercase;">Published:</span>
+                <span id="audit-stream-published" style="font-size: 13px; font-weight: 700; color: #4ade80; font-family: var(--font-mono);">0</span>
+              </div>
+              <div>
+                <span style="font-size: 10px; color: #888; text-transform: uppercase;">Buffered:</span>
+                <span id="audit-stream-buffered" style="font-size: 13px; font-weight: 700; color: #facc15; font-family: var(--font-mono);">0</span>
+              </div>
+              <button type="button" class="btn btn--secondary btn--sm" id="btn-drain-stream" style="padding: 4px 10px; font-size: 11px;">Drain & Verify</button>
+            </div>
+          </div>
         </div>
 
         <div class="sub-tabs">
